@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/xor-gate/goexif2/exif"
 )
 
 var DestinationDirectoryFormat string
@@ -51,25 +52,124 @@ func init() {
 	organizeCmd.Flags().StringVarP(&DestinationDirectoryFormat, "dir-fmt", "d", TimeFormat("yyyy/mm"), "Directory format")
 }
 
-func organize(src, dest string) {
-	filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
+type fileinfo struct {
+	path string
+	info os.FileInfo
+}
+
+var processChan chan *fileinfo
+var errorChan chan error
+var goroutineSync chan int
+
+func process(src, dest string) {
+	for {
+		file, ok := <-processChan
+		if !ok {
+			goroutineSync <- 1 // signal exit
+			return
 		}
 
-		relPath, err := filepath.Rel(src, path)
+		is, err := os.Open(file.path)
 		if err != nil {
-			return err
+			errorChan <- err
+			continue
+		}
+		exinfo, err := exif.Decode(is)
+		if err != nil {
+			errorChan <- err
+			continue
 		}
 
-		_, filename := filepath.Split(path)
-		newDir := info.ModTime().Format(DestinationDirectoryFormat)
+		dt, err := exinfo.DateTime()
+		if err != nil {
+			errorChan <- err
+			continue
+		}
 
+		relPath, err := filepath.Rel(src, file.path)
+		if err != nil {
+			errorChan <- err
+			continue
+		}
+
+		_, filename := filepath.Split(file.path)
+		newDir := dt.Format(DestinationDirectoryFormat)
 		newPath := filepath.Join(dest, newDir, filename)
 
 		fmt.Printf("%s => %s\n", relPath, newPath)
+	}
+}
+
+func processErrors() {
+	for {
+		err, ok := <-errorChan
+		if !ok {
+			goroutineSync <- 1 // signal exit
+			return
+		}
+
+		fmt.Printf("ERROR: %s\n", err)
+	}
+}
+
+func serveFiles(paths []*fileinfo) {
+	for _, path := range paths {
+		processChan <- path
+	}
+	close(processChan)
+}
+
+func organize(src, dest string) {
+	paths := make([]*fileinfo, 0, 100000)
+
+	errorCount := 0
+	dirCount := 0
+
+	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			errorCount += 1
+			return err
+		}
+		if info.IsDir() {
+			dirCount += 1
+			return nil
+		}
+		if cap(paths) <= len(paths) {
+			newPaths := make([]*fileinfo, cap(paths)*2)
+			copy(newPaths, paths)
+			paths = newPaths
+		}
+		paths = append(paths, &fileinfo{
+			path: path,
+			info: info,
+		})
 		return nil
 	})
+	if err != nil {
+		fmt.Printf("problem getting file list: %s\n", err)
+	}
+
+	fmt.Printf("found %d files\n", len(paths))
+
+	routineCount := 1
+
+	processChan = make(chan *fileinfo, 100)
+	errorChan = make(chan error, 100)
+	goroutineSync = make(chan int, routineCount)
+
+	for i := 0; i < routineCount; i += 1 {
+		go process(src, dest)
+	}
+	go processErrors()
+	go serveFiles(paths)
+
+	for i := 0; i < routineCount; i += 1 {
+		<-goroutineSync // wait for process goroutines
+	}
+	close(errorChan)
+	<-goroutineSync // wait for error goroutine
+
+	fmt.Printf("Done.")
 }
 
 // TimeFormat creates format string for time.Format() using yyyy etc notation.

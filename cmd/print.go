@@ -12,10 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package cmd
 
-import "mikijov/photo-cleanup/cmd"
+import "fmt"
 
-func main() {
-	cmd.Execute()
+var Quiet = false
+var Verbose = true
+
+func Info(format string, args ...interface{}) {
+	if Verbose && !Quiet {
+		fmt.Printf(format, args...)
+	}
+}
+
+func Print(format string, args ...interface{}) {
+	if !Quiet {
+		fmt.Printf(format, args...)
+	}
 }

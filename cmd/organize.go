@@ -56,12 +56,12 @@ type fileinfo struct {
 	info    os.FileInfo
 }
 
-func getFiles(dir string, errors Messages) (files []*fileinfo, er error) {
+func getFiles(dir string, messages Messages) (files []*fileinfo, er error) {
 	retVal := make([]*fileinfo, 0, 65536)
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			errors.AddError("Error getting file info: %s", path)
+			messages.AddError("Error getting file info: %s", path)
 			return err
 		}
 		if info.IsDir() {
@@ -92,26 +92,26 @@ func getFiles(dir string, errors Messages) (files []*fileinfo, er error) {
 	return retVal, nil
 }
 
-func process(src, dest string, files []*fileinfo, errors Messages) {
+func process(src, dest string, files []*fileinfo, messages Messages) {
 	fileCount := len(files)
 
 	for i, file := range files {
-		Print("\rProcessed %d out of %d files. %d errors so far.", i, fileCount, errors.GetMessageCount())
+		Print("\rProcessed %d out of %d files. %d errors, %d warnings so far.", i, fileCount, messages.GetErrorCount(), messages.GetWarningCount())
 
 		is, err := os.Open(file.path)
 		if err != nil {
-			errors.AddError("Error opening file: %s: %s", file.path, err.Error())
+			messages.AddError("Error opening file: %s: %s", file.path, err.Error())
 			continue
 		}
 		exinfo, err := exif.Decode(is)
 		if err != nil {
-			errors.AddError("Error reading meta data: %s: %s", file.path, err.Error())
+			messages.AddError("Error reading meta data: %s: %s", file.path, err.Error())
 			continue
 		}
 
 		dt, err := exinfo.DateTime()
 		if err != nil {
-			errors.AddWarning("No meta data in the file. Using file modification time: %s: %s", file.path, err.Error())
+			messages.AddWarning("No meta data in the file. Using file modification time: %s: %s", file.path, err.Error())
 		} else {
 			dt = file.info.ModTime()
 		}
@@ -123,22 +123,22 @@ func process(src, dest string, files []*fileinfo, errors Messages) {
 		file.newPath = newPath
 	}
 
-	Print("\rProcessing %d out of %d files. %d errors so far.\n", fileCount, fileCount, errors.GetMessageCount())
+	Print("\rProcessed %d out of %d files. %d errors, %d warnings so far.\n", fileCount, fileCount, messages.GetErrorCount(), messages.GetWarningCount())
 }
 
 func organize(src, dest string) {
-	errors := NewMessages()
-	files, err := getFiles(src, errors)
+	messages := NewMessages()
+	files, err := getFiles(src, messages)
 	if err != nil {
 		Print("Failed to get file list: %s\n", err)
 		return
 	}
-	process(src, dest, files, errors)
+	process(src, dest, files, messages)
 
-	for _, err := range errors.GetWarnings() {
-		Info("%s\n", err)
+	for _, msg := range messages.GetWarnings() {
+		Info("%s\n", msg)
 	}
-	for _, err := range errors.GetErrors() {
-		Print("%s\n", err)
+	for _, msg := range messages.GetErrors() {
+		Print("%s\n", msg)
 	}
 }

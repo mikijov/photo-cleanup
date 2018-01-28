@@ -1,3 +1,17 @@
+// Copyright © 2018 Milutin Jovanović miki@voreni.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cmd
 
 import (
@@ -48,8 +62,81 @@ func TestAcceptFile(t *testing.T) {
 	}
 }
 
+func mkInfo(path string) os.FileInfo {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		panic("cannot stat test file " + path)
+	}
+	return fi
+}
+
+func TestGetFiles(t *testing.T) {
+	var expected = map[string]fileinfo{
+		"../test/exif-20170202.jpg": {"../test/exif-20170202.jpg", "", mkInfo("../test/exif-20170202.jpg"), ""},
+		"../test/exif-20180101.jpg": {"../test/exif-20180101.jpg", "", mkInfo("../test/exif-20180101.jpg"), ""},
+		"../test/exif-20180201.jpg": {"../test/exif-20180201.jpg", "", mkInfo("../test/exif-20180201.jpg"), ""},
+		// "../test/not-readable.jpg":        // should not appear
+		"../test/.hidden-file.jpg": {"../test/.hidden-file.jpg", "", mkInfo("../test/.hidden-file.jpg"), ""},
+		"../test/no-exif.jpg":      {"../test/no-exif.jpg", "", mkInfo("../test/no-exif.jpg"), ""},
+		// "../test/symlink.jpg":             // should not appear
+		"../test/jpg.wrong-extension":     {"../test/jpg.wrong-extension", "", mkInfo("../test/jpg.wrong-extension"), ""},
+		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "", mkInfo("../test/duplicate.jpg"), ""},
+		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "", mkInfo("../test/duplicate/duplicate.jpg"), ""},
+	}
+
+	AllFiles = true
+	HiddenFiles = true
+	MinSize = 0
+	FallbackToFileTime = false
+
+	files, err := getFiles("../test")
+	if err != nil {
+		t.Fatalf("unexpectedly could not get files: %s", err)
+	}
+
+	for _, file := range files {
+		test, found := expected[file.path]
+		if !found {
+			t.Errorf("unexpected file: %s", file.path)
+		} else {
+			delete(expected, file.path)
+		}
+
+		if test.path != file.path {
+			t.Errorf("path expected:%s got:%s", test.path, file.path)
+		}
+		if test.newPath != file.newPath {
+			t.Errorf("newPath expected:%s got:%s", test.newPath, file.newPath)
+		}
+		if test.message != file.message {
+			t.Errorf("message expected:%s got:%s", test.message, file.message)
+		}
+		if diff, equal := Diff(test.info, file.info); !equal {
+			t.Errorf("%s: FileInfo: %s", test.path, diff)
+		}
+	}
+
+	for test, _ := range expected {
+		t.Errorf("expected but not found: %s", test)
+	}
+}
+
+func TestGetFiles2(t *testing.T) {
+	files, err := getFiles("../does-not-exist")
+	if files != nil {
+		t.Error("expected nil as return")
+	}
+	if err.Error() != "lstat ../does-not-exist: no such file or directory" {
+		t.Errorf("unexpected error: %s", err)
+	}
+}
+
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
+
+	Verbose = false
+	Quiet = true
+
 	if err := os.Chmod("../test/not-readable.jpg", 0200); err != nil {
 		fmt.Printf("Unable to change test file permission. (%s)\n", err)
 		os.Exit(1)

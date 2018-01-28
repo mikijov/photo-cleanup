@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/d4l3k/messagediff"
+  packages = ["."]
+  revision = "7b706999d935b04cf2dbc71a5a5afcbd288aeb48"
+  version = "v1.1.0"
+
+[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
@@ -54,6 +60,12 @@
   version = "v1.1.0"
 
 [[projects]]
+  name = "github.com/sergi/go-diff"
+  packages = ["diffmatchpatch"]
+  revision = "1744e2970ca51c86172c8190fadad617561ed6e7"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/spf13/afero"
   packages = [
     ".",
@@ -93,6 +105,15 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/xor-gate/goexif2"
+  packages = [
+    "exif",
+    "tiff"
+  ]
+  revision = "78b42f396c46d1cb2fda9148d0ff77c615cb6caf"
+  version = "v1.1.0"
+
+[[projects]]
   branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
@@ -120,6 +141,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bf5b06e0cfa4be2b8501a8001bcf7ab4168ae5dcac4cf9bd58037a8fc37530b7"
+  inputs-digest = "55dd7925324b3f16df23d850cafc0e4b39eb83cd18931a834c0c59193658593b"
   solver-name = "gps-cdcl"
   solver-version = 1

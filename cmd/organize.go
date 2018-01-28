@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,6 +70,7 @@ type fileinfo struct {
 	path    string
 	newPath string
 	info    os.FileInfo
+	message string
 }
 
 func acceptFile(info os.FileInfo) (accepted bool, reason string) {
@@ -145,13 +147,15 @@ func evaluate(src, dest string, files []*fileinfo) {
 
 		is, err := os.Open(file.path)
 		if err != nil {
-			Print("\r%s: error opening file (%s)\n", file.path, err)
+			file.message = fmt.Sprintf("%s: error opening file (%s)", file.path, err)
+			Print("\r%s\n", file.message)
 			is.Close()
 			continue
 		}
 		exinfo, err := exif.Decode(is)
 		if err != nil {
-			Print("\r%s: error reading meta data (%s)\n", file.path, err)
+			file.message = fmt.Sprintf("%s: error reading meta data (%s)", file.path, err)
+			Print("\r%s\n", file.message)
 			is.Close()
 			continue
 		}
@@ -159,10 +163,12 @@ func evaluate(src, dest string, files []*fileinfo) {
 		dt, err := exinfo.DateTime()
 		if err != nil {
 			if FallbackToFileTime {
-				Info("\r%s: using file modification time (%s)\n", file.path, err)
+				file.message = fmt.Sprintf("%s: using file modification time (%s)", file.path, err)
+				Info("\r%s\n", file.message)
 				dt = file.info.ModTime()
 			} else {
-				Print("\r%s: no date/time meta data (%s)\n", file.path, err)
+				file.message = fmt.Sprintf("%s: no date/time meta data (%s)", file.path, err)
+				Print("\r%s\n", file.message)
 				is.Close()
 				continue
 			}

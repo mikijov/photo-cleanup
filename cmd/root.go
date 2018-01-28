@@ -58,7 +58,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.photo-cleanup.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "display more information while processing")
 	rootCmd.PersistentFlags().BoolVarP(&Quiet, "quiet", "q", false, "display no information while processing")
-	rootCmd.PersistentFlags().BoolVarP(&WarningsAsErrors, "warnings-as-errors", "w", false, "treat all warnings as errors")
+	// rootCmd.PersistentFlags().BoolVarP(&WarningsAsErrors, "warnings-as-errors", "w", false, "treat all warnings as errors")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

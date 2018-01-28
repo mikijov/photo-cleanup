@@ -17,12 +17,23 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/xor-gate/goexif2/exif"
 )
 
 var DestinationDirectoryFormat string
+var MinSize int64
+var AllFiles bool
+var HiddenFiles bool
+var FallbackToFileTime bool
+
+var acceptedFileTypes = map[string]bool{
+	".jpg":  true,
+	".jpeg": true,
+	".mp4":  true,
+}
 
 // organizeCmd represents the organize command
 var organizeCmd = &cobra.Command{
@@ -47,7 +58,11 @@ func init() {
 	// and all subcommands, e.g.:
 	// organizeCmd.PersistentFlags().String("foo", "", "A help for foo")
 
-	organizeCmd.Flags().StringVarP(&DestinationDirectoryFormat, "dir-fmt", "d", TimeFormat("yyyy/mm"), "Directory format")
+	organizeCmd.Flags().StringVar(&DestinationDirectoryFormat, "dir-fmt", TimeFormat("yyyy/mm"), "Directory format")
+	organizeCmd.Flags().Int64Var(&MinSize, "min-size", 0, "Minimum file size to consider for processing.")
+	organizeCmd.Flags().BoolVar(&AllFiles, "all-files", false, "Process all files. Default is only images (jpg).")
+	organizeCmd.Flags().BoolVar(&HiddenFiles, "hidden-files", false, "Process hidden files. Default is only normal files.")
+	organizeCmd.Flags().BoolVar(&FallbackToFileTime, "allow-file-time", false, "Allow file time when no meta data.")
 }
 
 type fileinfo struct {
@@ -56,17 +71,47 @@ type fileinfo struct {
 	info    os.FileInfo
 }
 
-func getFiles(dir string, messages Messages) (files []*fileinfo, er error) {
+func acceptFile(info os.FileInfo) (accepted bool, reason string) {
+	mode := info.Mode()
+	if !mode.IsRegular() {
+		return false, "not regular file"
+	}
+	perm := mode.Perm()
+	if perm&0400 != 0400 {
+		return false, "not readable file"
+	}
+
+	filename := info.Name()
+	if !HiddenFiles && filename[0] == '.' {
+		return false, "hidden file"
+	}
+	ext := strings.ToLower(filepath.Ext(filename))
+	if !AllFiles && !acceptedFileTypes[ext] {
+		return false, "not image file"
+	}
+	if info.Size() < MinSize {
+		return false, "small file"
+	}
+	return true, ""
+}
+
+func getFiles(dir string) (files []*fileinfo, er error) {
 	retVal := make([]*fileinfo, 0, 65536)
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			messages.AddError("Error getting file info: %s", path)
+			Print("\r%s: error getting file info: %s\n", path, err)
 			return err
 		}
 		if info.IsDir() {
 			return nil
 		}
+
+		if ok, reason := acceptFile(info); !ok {
+			Info("\r%s: skipping: %s\n", path, reason)
+			return nil
+		}
+
 		if cap(retVal) <= len(retVal) {
 			newFiles := make([]*fileinfo, cap(retVal)*2)
 			copy(newFiles, retVal)
@@ -92,53 +137,57 @@ func getFiles(dir string, messages Messages) (files []*fileinfo, er error) {
 	return retVal, nil
 }
 
-func process(src, dest string, files []*fileinfo, messages Messages) {
+func evaluate(src, dest string, files []*fileinfo) {
 	fileCount := len(files)
 
 	for i, file := range files {
-		Print("\rProcessed %d out of %d files. %d errors, %d warnings so far.", i, fileCount, messages.GetErrorCount(), messages.GetWarningCount())
+		Print("\rEvaluated %d out of %d files.", i, fileCount)
 
 		is, err := os.Open(file.path)
 		if err != nil {
-			messages.AddError("Error opening file: %s: %s", file.path, err.Error())
+			Print("\r%s: error opening file (%s)\n", file.path, err)
+			is.Close()
 			continue
 		}
 		exinfo, err := exif.Decode(is)
 		if err != nil {
-			messages.AddError("Error reading meta data: %s: %s", file.path, err.Error())
+			Print("\r%s: error reading meta data (%s)\n", file.path, err)
+			is.Close()
 			continue
 		}
 
 		dt, err := exinfo.DateTime()
 		if err != nil {
-			messages.AddWarning("No meta data in the file. Using file modification time: %s: %s", file.path, err.Error())
-		} else {
-			dt = file.info.ModTime()
+			if FallbackToFileTime {
+				Info("\r%s: using file modification time (%s)\n", file.path, err)
+				dt = file.info.ModTime()
+			} else {
+				Print("\r%s: no date/time meta data (%s)\n", file.path, err)
+				is.Close()
+				continue
+			}
 		}
 
-		_, filename := filepath.Split(file.path)
 		newDir := dt.Format(DestinationDirectoryFormat)
-		newPath := filepath.Join(dest, newDir, filename)
+		file.newPath = filepath.Join(dest, newDir, file.info.Name())
 
-		file.newPath = newPath
+		is.Close()
 	}
 
-	Print("\rProcessed %d out of %d files. %d errors, %d warnings so far.\n", fileCount, fileCount, messages.GetErrorCount(), messages.GetWarningCount())
+	Print("\rEvaluated %d out of %d files.\n", fileCount, fileCount)
 }
 
 func organize(src, dest string) {
-	messages := NewMessages()
-	files, err := getFiles(src, messages)
+	files, err := getFiles(src)
 	if err != nil {
 		Print("Failed to get file list: %s\n", err)
 		return
 	}
-	process(src, dest, files, messages)
+	evaluate(src, dest, files)
 
-	for _, msg := range messages.GetWarnings() {
-		Info("%s\n", msg)
-	}
-	for _, msg := range messages.GetErrors() {
-		Print("%s\n", msg)
+	for _, file := range files {
+		if file.newPath != "" {
+			Print("mv %s %s\n", file.path, file.newPath)
+		}
 	}
 }

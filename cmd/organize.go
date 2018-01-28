@@ -139,7 +139,7 @@ func getFiles(dir string) (files []*fileinfo, er error) {
 	return retVal, nil
 }
 
-func evaluate(src, dest string, files []*fileinfo) {
+func evaluate(files []*fileinfo, dest string) {
 	fileCount := len(files)
 
 	for i, file := range files {
@@ -189,7 +189,7 @@ func organize(src, dest string) {
 		Print("Failed to get file list: %s\n", err)
 		return
 	}
-	evaluate(src, dest, files)
+	evaluate(files, dest)
 
 	for _, file := range files {
 		if file.newPath != "" {

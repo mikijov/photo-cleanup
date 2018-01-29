@@ -71,18 +71,24 @@ func mkInfo(path string) os.FileInfo {
 }
 
 func TestGetFiles(t *testing.T) {
-	var expected = map[string]fileinfo{
-		"../test/exif-20170202.jpg": {"../test/exif-20170202.jpg", "", mkInfo("../test/exif-20170202.jpg"), ""},
-		"../test/exif-20180101.jpg": {"../test/exif-20180101.jpg", "", mkInfo("../test/exif-20180101.jpg"), ""},
-		"../test/exif-20180201.jpg": {"../test/exif-20180201.jpg", "", mkInfo("../test/exif-20180201.jpg"), ""},
+	var expected = map[string]struct {
+		path    string
+		newDir  string
+		newPath string
+		info    os.FileInfo
+		message string
+	}{
+		"../test/exif-20170202.jpg": {"../test/exif-20170202.jpg", "", "", mkInfo("../test/exif-20170202.jpg"), ""},
+		"../test/exif-20180101.jpg": {"../test/exif-20180101.jpg", "", "", mkInfo("../test/exif-20180101.jpg"), ""},
+		"../test/exif-20180201.jpg": {"../test/exif-20180201.jpg", "", "", mkInfo("../test/exif-20180201.jpg"), ""},
 		// "../test/not-readable.jpg":        // should not appear
-		"../test/.hidden-file.jpg": {"../test/.hidden-file.jpg", "", mkInfo("../test/.hidden-file.jpg"), ""},
-		"../test/no-exif.jpg":      {"../test/no-exif.jpg", "", mkInfo("../test/no-exif.jpg"), ""},
+		"../test/.hidden-file.jpg": {"../test/.hidden-file.jpg", "", "", mkInfo("../test/.hidden-file.jpg"), ""},
+		"../test/no-exif.jpg":      {"../test/no-exif.jpg", "", "", mkInfo("../test/no-exif.jpg"), ""},
 		// "../test/symlink.jpg":             // should not appear
-		"../test/jpg.wrong-extension":     {"../test/jpg.wrong-extension", "", mkInfo("../test/jpg.wrong-extension"), ""},
-		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "", mkInfo("../test/duplicate.jpg"), ""},
-		"../test/empty.jpg":               {"../test/empty.jpg", "", mkInfo("../test/empty.jpg"), ""},
-		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "", mkInfo("../test/duplicate/duplicate.jpg"), ""},
+		"../test/jpg.wrong-extension":     {"../test/jpg.wrong-extension", "", "", mkInfo("../test/jpg.wrong-extension"), ""},
+		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "", "", mkInfo("../test/duplicate.jpg"), ""},
+		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), ""},
+		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "", "", mkInfo("../test/duplicate/duplicate.jpg"), ""},
 	}
 
 	AllFiles = true
@@ -133,48 +139,71 @@ func TestGetFiles2(t *testing.T) {
 }
 
 func TestEvaluate(t *testing.T) {
-	var expected = []*fileinfo{
-		&fileinfo{"../test/exif-20170202.jpg", "dest/2017/02/exif-20170202.jpg", mkInfo("../test/exif-20170202.jpg"), ""},
-		&fileinfo{"../test/exif-20180101.jpg", "dest/2018/01/exif-20180101.jpg", mkInfo("../test/exif-20180101.jpg"), ""},
-		&fileinfo{"../test/exif-20180201.jpg", "dest/2018/02/exif-20180201.jpg", mkInfo("../test/exif-20180201.jpg"), ""},
-		&fileinfo{"../test/.hidden-file.jpg", "dest/2018/02/.hidden-file.jpg", mkInfo("../test/.hidden-file.jpg"), ""},
-		&fileinfo{"../test/no-exif.jpg", "", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: no date/time meta data (exif: tag \"DateTime\" is not present)"},
-		&fileinfo{"../test/jpg.wrong-extension", "dest/2017/02/jpg.wrong-extension", mkInfo("../test/jpg.wrong-extension"), ""},
-		&fileinfo{"../test/duplicate.jpg", "dest/2017/02/duplicate.jpg", mkInfo("../test/duplicate.jpg"), ""},
-		&fileinfo{"../test/duplicate/duplicate.jpg", "dest/2017/02/duplicate.jpg", mkInfo("../test/duplicate/duplicate.jpg"), ""},
-		&fileinfo{"../test/not-readable.jpg", "", mkInfo("../test/not-readable.jpg"), "../test/not-readable.jpg: error opening file (open ../test/not-readable.jpg: permission denied)"},
-		&fileinfo{"../test/empty.jpg", "", mkInfo("../test/empty.jpg"), "../test/empty.jpg: error reading meta data (EOF)"},
+	var expected = map[string]struct {
+		path    string
+		newDir  string
+		newPath string
+		info    os.FileInfo
+		message string
+	}{
+		"../test/exif-20170202.jpg":       {"../test/exif-20170202.jpg", "dest/2017/02", "dest/2017/02/exif-20170202.jpg", mkInfo("../test/exif-20170202.jpg"), ""},
+		"../test/exif-20180101.jpg":       {"../test/exif-20180101.jpg", "dest/2018/01", "dest/2018/01/exif-20180101.jpg", mkInfo("../test/exif-20180101.jpg"), ""},
+		"../test/exif-20180201.jpg":       {"../test/exif-20180201.jpg", "dest/2018/02", "dest/2018/02/exif-20180201.jpg", mkInfo("../test/exif-20180201.jpg"), ""},
+		"../test/.hidden-file.jpg":        {"../test/.hidden-file.jpg", "dest/2018/02", "dest/2018/02/.hidden-file.jpg", mkInfo("../test/.hidden-file.jpg"), ""},
+		"../test/no-exif.jpg":             {"../test/no-exif.jpg", "", "", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: no date/time meta data (exif: tag \"DateTime\" is not present)"},
+		"../test/jpg.wrong-extension":     {"../test/jpg.wrong-extension", "dest/2017/02", "dest/2017/02/jpg.wrong-extension", mkInfo("../test/jpg.wrong-extension"), ""},
+		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "dest/2017/02", "dest/2017/02/duplicate.jpg", mkInfo("../test/duplicate.jpg"), ""},
+		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "dest/2017/02", "", mkInfo("../test/duplicate/duplicate.jpg"), "../test/duplicate/duplicate.jpg: duplicate: dest/2017/02/duplicate.jpg"},
+		"../test/not-readable.jpg":        {"../test/not-readable.jpg", "", "", mkInfo("../test/not-readable.jpg"), "../test/not-readable.jpg: error opening file (open ../test/not-readable.jpg: permission denied)"},
+		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), "../test/empty.jpg: error reading meta data (EOF)"},
 	}
-	files := make([]*fileinfo, len(expected))
-	for i, test := range expected {
-		files[i] = &fileinfo{
+	files := make([]*fileinfo, 0, len(expected))
+	for _, test := range expected {
+		files = append(files, &fileinfo{
 			path: test.path,
 			info: test.info,
-		}
+		})
 	}
 
 	FallbackToFileTime = false
 	evaluate(files, "dest")
 
-	for i, file := range files {
-		if expected[i].path != file.path {
-			t.Errorf("path expected:%s got:%s", expected[i].path, file.path)
+	for _, file := range files {
+		test, found := expected[file.path]
+		if !found {
+			t.Errorf("unexpected file: %s", file.path)
+		} else {
+			delete(expected, file.path)
 		}
-		if expected[i].newPath != file.newPath {
-			t.Errorf("newPath expected:%s got:%s", expected[i].newPath, file.newPath)
+
+		if test.path != file.path {
+			t.Errorf("path expected:%s got:%s", test.path, file.path)
 		}
-		if expected[i].message != file.message {
-			t.Errorf("message expected:%s got:%s", expected[i].message, file.message)
+		if test.newPath != file.newPath {
+			t.Errorf("newPath expected:%s got:%s", test.newPath, file.newPath)
 		}
-		if diff, equal := Diff(expected[i].info, file.info); !equal {
-			t.Errorf("%s: FileInfo: %s", expected[i].path, diff)
+		if test.message != file.message {
+			t.Errorf("message expected:%s got:%s", test.message, file.message)
 		}
+		if diff, equal := Diff(test.info, file.info); !equal {
+			t.Errorf("%s: FileInfo: %s", test.path, diff)
+		}
+	}
+
+	for test, _ := range expected {
+		t.Errorf("expected but not found: %s", test)
 	}
 }
 
 func TestEvaluateFallbackToFileTime(t *testing.T) {
-	var expected = []*fileinfo{
-		&fileinfo{"../test/no-exif.jpg", "dest/2018/01/no-exif.jpg", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: using file modification time (exif: tag \"DateTime\" is not present)"},
+	var expected = []struct {
+		path    string
+		newDir  string
+		newPath string
+		info    os.FileInfo
+		message string
+	}{
+		{"../test/no-exif.jpg", "dest/2018/01", "dest/2018/01/no-exif.jpg", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: using file modification time (exif: tag \"DateTime\" is not present)"},
 	}
 	files := make([]*fileinfo, len(expected))
 	for i, test := range expected {
@@ -206,6 +235,7 @@ func TestEvaluateFallbackToFileTime(t *testing.T) {
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 
+	DestinationDirectoryFormat = TimeFormat(DestinationDirectoryFormat)
 	Verbose = false
 	Quiet = true
 

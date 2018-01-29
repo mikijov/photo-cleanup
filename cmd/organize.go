@@ -18,7 +18,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/xor-gate/goexif2/exif"
@@ -29,11 +31,12 @@ var MinSize int64
 var AllFiles bool
 var HiddenFiles bool
 var FallbackToFileTime bool
+var DryRun bool
 
 var acceptedFileTypes = map[string]bool{
 	".jpg":  true,
 	".jpeg": true,
-	".mp4":  true,
+	// ".mp4":  true,
 }
 
 // organizeCmd represents the organize command
@@ -47,6 +50,9 @@ var organizeCmd = &cobra.Command{
 	// This application is a tool to generate the needed files
 	// to quickly create a Cobra application.`,
 	Args: cobra.ExactArgs(2),
+	PreRun: func(cmd *cobra.Command, args []string) {
+		DestinationDirectoryFormat = TimeFormat(DestinationDirectoryFormat)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		organize(args[0], args[1])
 	},
@@ -59,18 +65,21 @@ func init() {
 	// and all subcommands, e.g.:
 	// organizeCmd.PersistentFlags().String("foo", "", "A help for foo")
 
-	organizeCmd.Flags().StringVar(&DestinationDirectoryFormat, "dir-fmt", TimeFormat("yyyy/mm"), "Directory format")
+	organizeCmd.Flags().StringVar(&DestinationDirectoryFormat, "dir-fmt", "yyyy/mm", "Directory format")
 	organizeCmd.Flags().Int64Var(&MinSize, "min-size", 0, "Minimum file size to consider for processing.")
 	organizeCmd.Flags().BoolVar(&AllFiles, "all-files", false, "Process all files. Default is only images (jpg).")
 	organizeCmd.Flags().BoolVar(&HiddenFiles, "hidden-files", false, "Process hidden files. Default is only normal files.")
 	organizeCmd.Flags().BoolVar(&FallbackToFileTime, "allow-file-time", false, "Allow file time when no meta data.")
+	organizeCmd.Flags().BoolVarP(&DryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
 }
 
 type fileinfo struct {
 	path    string
+	newDir  string
 	newPath string
 	info    os.FileInfo
 	message string
+	time    time.Time
 }
 
 func acceptFile(info os.FileInfo) (accepted bool, reason string) {
@@ -160,12 +169,12 @@ func evaluate(files []*fileinfo, dest string) {
 			continue
 		}
 
-		dt, err := exinfo.DateTime()
+		file.time, err = exinfo.DateTime()
 		if err != nil {
 			if FallbackToFileTime {
 				file.message = fmt.Sprintf("%s: using file modification time (%s)", file.path, err)
 				Info("\r%s\n", file.message)
-				dt = file.info.ModTime()
+				file.time = file.info.ModTime()
 			} else {
 				file.message = fmt.Sprintf("%s: no date/time meta data (%s)", file.path, err)
 				Print("\r%s\n", file.message)
@@ -174,10 +183,42 @@ func evaluate(files []*fileinfo, dest string) {
 			}
 		}
 
-		newDir := dt.Format(DestinationDirectoryFormat)
-		file.newPath = filepath.Join(dest, newDir, file.info.Name())
+		newDir := file.time.Format(DestinationDirectoryFormat)
+		file.newDir = filepath.Join(dest, newDir)
+		file.newPath = filepath.Join(file.newDir, file.info.Name())
 
 		is.Close()
+	}
+
+	sort.Slice(files, func(i, j int) bool {
+		// prioritize older files, first by path/meta
+		l, r := files[i], files[j]
+		if l.newPath != r.newPath {
+			return l.newPath < r.newPath
+		}
+		// then by file mod time
+		if !l.time.Equal(r.time) {
+			return l.time.Before(r.time)
+		}
+		// then larger files
+		return l.info.Size() > r.info.Size()
+	})
+
+	// find photos that generate same newPath and mark them as duplicates
+	var prevFile *fileinfo
+	for _, file := range files {
+		if prevFile != nil && file.newPath != "" {
+			if file.newPath == prevFile.newPath {
+				file.newDir = ""
+				file.newPath = ""
+				file.message = fmt.Sprintf("%s: duplicate: %s", file.path, prevFile.newPath)
+				Print(file.message)
+			} else {
+				prevFile = file
+			}
+		} else {
+			prevFile = file
+		}
 	}
 
 	Print("\rEvaluated %d out of %d files.\n", fileCount, fileCount)
@@ -193,7 +234,10 @@ func organize(src, dest string) {
 
 	for _, file := range files {
 		if file.newPath != "" {
-			Print("mv %s %s\n", file.path, file.newPath)
+			if DryRun {
+				Print("mv %s %s\n", file.path, file.newPath)
+			} else {
+			}
 		}
 	}
 }

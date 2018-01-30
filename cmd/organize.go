@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -30,8 +31,13 @@ var DestinationDirectoryFormat string
 var MinSize int64
 var AllFiles bool
 var HiddenFiles bool
-var FallbackToFileTime bool
+var UseExifTime bool
+var UseFileTime bool
+var UseFilenameEncodedTime bool
 var DryRun bool
+
+var FilenameWithTimeRE = regexp.MustCompile("^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6}).(?i:jpg|mp4)$")
+var TimeLayoutFromFilenameWithDate = TimeFormat("yyyymmdd_HHMMSS")
 
 var acceptedFileTypes = map[string]bool{
 	".jpg":  true,
@@ -69,7 +75,9 @@ func init() {
 	organizeCmd.Flags().Int64Var(&MinSize, "min-size", 0, "Minimum file size to consider for processing.")
 	organizeCmd.Flags().BoolVar(&AllFiles, "all-files", false, "Process all files. Default is only images (jpg).")
 	organizeCmd.Flags().BoolVar(&HiddenFiles, "hidden-files", false, "Process hidden files. Default is only normal files.")
-	organizeCmd.Flags().BoolVar(&FallbackToFileTime, "allow-file-time", false, "Allow file time when no meta data.")
+	organizeCmd.Flags().BoolVar(&UseExifTime, "use-exif-time", true, "Use time from exif meta data.")
+	organizeCmd.Flags().BoolVar(&UseFileTime, "use-file-time", false, "Use file modification time when no meta data.")
+	organizeCmd.Flags().BoolVar(&UseFilenameEncodedTime, "use-filename-encoded-time", true, "Attempt to parse time from filename.")
 	organizeCmd.Flags().BoolVarP(&DryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
 }
 
@@ -154,40 +162,52 @@ func evaluate(files []*fileinfo, dest string) {
 	for i, file := range files {
 		Print("\rEvaluated %d out of %d files.", i, fileCount)
 
-		is, err := os.Open(file.path)
-		if err != nil {
-			file.message = fmt.Sprintf("%s: error opening file (%s)", file.path, err)
-			Print("\r%s\n", file.message)
-			is.Close()
-			continue
-		}
-		exinfo, err := exif.Decode(is)
-		if err != nil {
-			file.message = fmt.Sprintf("%s: error reading meta data (%s)", file.path, err)
-			Print("\r%s\n", file.message)
-			is.Close()
-			continue
+		foundTime := false
+
+		if !foundTime && UseExifTime {
+			is, err := os.Open(file.path)
+			if err != nil {
+				Info("%s: error opening file (%s)", file.path, err)
+			} else {
+				exinfo, err := exif.Decode(is)
+				if err != nil {
+					Info("%s: error reading meta data (%s)", file.path, err)
+				} else {
+					time, err := exinfo.DateTime()
+					if err == nil {
+						foundTime = true
+						file.time = time
+					}
+				}
+				is.Close()
+			}
 		}
 
-		file.time, err = exinfo.DateTime()
-		if err != nil {
-			if FallbackToFileTime {
-				file.message = fmt.Sprintf("%s: using file modification time (%s)", file.path, err)
-				Info("\r%s\n", file.message)
-				file.time = file.info.ModTime()
-			} else {
-				file.message = fmt.Sprintf("%s: no date/time meta data (%s)", file.path, err)
-				Print("\r%s\n", file.message)
-				is.Close()
-				continue
+		if !foundTime && UseFilenameEncodedTime {
+			match := FilenameWithTimeRE.FindStringSubmatch(file.info.Name())
+			if match != nil {
+				time, err := time.Parse(TimeLayoutFromFilenameWithDate, match[1])
+				if err == nil {
+					foundTime = true
+					file.time = time
+				}
 			}
+		}
+
+		if !foundTime && UseFileTime {
+			file.time = file.info.ModTime()
+			foundTime = true
+		}
+
+		if !foundTime {
+			file.message = fmt.Sprintf("%s: could not determine date/time", file.path)
+			Print("\r%s\n", file.message)
+			continue
 		}
 
 		newDir := file.time.Format(DestinationDirectoryFormat)
 		file.newDir = filepath.Join(dest, newDir)
 		file.newPath = filepath.Join(file.newDir, file.info.Name())
-
-		is.Close()
 	}
 
 	sort.Slice(files, func(i, j int) bool {
@@ -224,6 +244,55 @@ func evaluate(files []*fileinfo, dest string) {
 	Print("\rEvaluated %d out of %d files.\n", fileCount, fileCount)
 }
 
+func execute(files []*fileinfo) {
+	fileCount := len(files)
+
+	for i, file := range files {
+		Print("\rMoved %d out of %d files.", i, fileCount)
+
+		if file.newPath == "" {
+			continue
+		}
+
+		// guard against overwriting
+		dest, err := os.Lstat(file.newPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// all is good, proceed
+			} else {
+				file.message = fmt.Sprintf("%s: problem checking destination: %s", err)
+				Print("%s\n", file.message)
+				continue
+			}
+		} else {
+			file.message = fmt.Sprintf("%s: already exists", file.newPath)
+			Print("%s\n", file.message)
+			continue
+		}
+
+		if os.SameFile(file.info, dest) {
+			file.message = fmt.Sprintf("%s: same file", file.newPath)
+			Print("%s\n", file.message)
+			continue
+		}
+
+		if DryRun {
+			file.message = fmt.Sprintf("mv %s %s", file.path, file.newPath)
+			Print("%s\n", file.message)
+		} else {
+			if err := os.MkdirAll(file.newDir, 0777); err != nil {
+				file.message = fmt.Sprintf("%s: failed to create directory: %s", file.newDir, err)
+				Print("%s\n", file.message)
+			} else if err := os.Rename(file.path, file.newPath); err != nil {
+				file.message = fmt.Sprintf("%s: failed to copy: %s", file.newPath, err)
+				Print("%s\n", file.message)
+			}
+		}
+	}
+
+	Print("\rMoved %d out of %d files.\n", fileCount, fileCount)
+}
+
 func organize(src, dest string) {
 	files, err := getFiles(src)
 	if err != nil {
@@ -231,13 +300,5 @@ func organize(src, dest string) {
 		return
 	}
 	evaluate(files, dest)
-
-	for _, file := range files {
-		if file.newPath != "" {
-			if DryRun {
-				Print("mv %s %s\n", file.path, file.newPath)
-			} else {
-			}
-		}
-	}
+	execute(files)
 }

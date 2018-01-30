@@ -89,12 +89,14 @@ func TestGetFiles(t *testing.T) {
 		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "", "", mkInfo("../test/duplicate.jpg"), ""},
 		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), ""},
 		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "", "", mkInfo("../test/duplicate/duplicate.jpg"), ""},
+		"../test/IMG_20180304_123456.jpg": {"../test/IMG_20180304_123456.jpg", "", "", mkInfo("../test/IMG_20180304_123456.jpg"), ""},
+		"../test/VID_20181231_203040.mp4": {"../test/VID_20181231_203040.mp4", "", "", mkInfo("../test/VID_20181231_203040.mp4"), ""},
 	}
 
 	AllFiles = true
 	HiddenFiles = true
 	MinSize = 0
-	FallbackToFileTime = false
+	UseFileTime = false
 
 	files, err := getFiles("../test")
 	if err != nil {
@@ -150,12 +152,14 @@ func TestEvaluate(t *testing.T) {
 		"../test/exif-20180101.jpg":       {"../test/exif-20180101.jpg", "dest/2018/01", "dest/2018/01/exif-20180101.jpg", mkInfo("../test/exif-20180101.jpg"), ""},
 		"../test/exif-20180201.jpg":       {"../test/exif-20180201.jpg", "dest/2018/02", "dest/2018/02/exif-20180201.jpg", mkInfo("../test/exif-20180201.jpg"), ""},
 		"../test/.hidden-file.jpg":        {"../test/.hidden-file.jpg", "dest/2018/02", "dest/2018/02/.hidden-file.jpg", mkInfo("../test/.hidden-file.jpg"), ""},
-		"../test/no-exif.jpg":             {"../test/no-exif.jpg", "", "", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: no date/time meta data (exif: tag \"DateTime\" is not present)"},
+		"../test/no-exif.jpg":             {"../test/no-exif.jpg", "", "", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: could not determine date/time"},
 		"../test/jpg.wrong-extension":     {"../test/jpg.wrong-extension", "dest/2017/02", "dest/2017/02/jpg.wrong-extension", mkInfo("../test/jpg.wrong-extension"), ""},
 		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "dest/2017/02", "dest/2017/02/duplicate.jpg", mkInfo("../test/duplicate.jpg"), ""},
 		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "dest/2017/02", "", mkInfo("../test/duplicate/duplicate.jpg"), "../test/duplicate/duplicate.jpg: duplicate: dest/2017/02/duplicate.jpg"},
-		"../test/not-readable.jpg":        {"../test/not-readable.jpg", "", "", mkInfo("../test/not-readable.jpg"), "../test/not-readable.jpg: error opening file (open ../test/not-readable.jpg: permission denied)"},
-		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), "../test/empty.jpg: error reading meta data (EOF)"},
+		"../test/not-readable.jpg":        {"../test/not-readable.jpg", "", "", mkInfo("../test/not-readable.jpg"), "../test/not-readable.jpg: could not determine date/time"},
+		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), "../test/empty.jpg: could not determine date/time"},
+		"../test/IMG_20180304_123456.jpg": {"../test/IMG_20180304_123456.jpg", "dest/2018/03", "dest/2018/03/IMG_20180304_123456.jpg", mkInfo("../test/IMG_20180304_123456.jpg"), ""},
+		"../test/VID_20181231_203040.mp4": {"../test/VID_20181231_203040.mp4", "dest/2018/12", "dest/2018/12/VID_20181231_203040.mp4", mkInfo("../test/VID_20181231_203040.mp4"), ""},
 	}
 	files := make([]*fileinfo, 0, len(expected))
 	for _, test := range expected {
@@ -165,7 +169,7 @@ func TestEvaluate(t *testing.T) {
 		})
 	}
 
-	FallbackToFileTime = false
+	UseFileTime = false
 	evaluate(files, "dest")
 
 	for _, file := range files {
@@ -203,7 +207,7 @@ func TestEvaluateFallbackToFileTime(t *testing.T) {
 		info    os.FileInfo
 		message string
 	}{
-		{"../test/no-exif.jpg", "dest/2018/01", "dest/2018/01/no-exif.jpg", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: using file modification time (exif: tag \"DateTime\" is not present)"},
+		{"../test/no-exif.jpg", "dest/2018/01", "dest/2018/01/no-exif.jpg", mkInfo("../test/no-exif.jpg"), ""},
 	}
 	files := make([]*fileinfo, len(expected))
 	for i, test := range expected {
@@ -213,7 +217,7 @@ func TestEvaluateFallbackToFileTime(t *testing.T) {
 		}
 	}
 
-	FallbackToFileTime = true
+	UseFileTime = true
 	evaluate(files, "dest")
 
 	for i, file := range files {

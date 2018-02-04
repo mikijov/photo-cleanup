@@ -3,10 +3,11 @@ photo-cleanup
 
 [![License][License-Image]][License-Url]
 [![Build][Build-Status-Image]][Build-Status-Url]
+[![ReportCard][ReportCard-Image]][ReportCard-Url]
 
 photo-cleanup is a photo organizer.
 
-    $>photo-cleanup help organize
+    $ photo-cleanup help organize
     Moves photos from source into proper destination subdirectory.
 
     Usage:
@@ -31,11 +32,19 @@ photo-cleanup is a photo organizer.
 To move all images from source to target directory while at the same time
 organizing them into /dest/<YEAR>/<MONTH>/filename.ext structure, simply execute:
 
-    photo-cleanup organize /media/SDCARD /home/me/Photos
+    $ photo-cleanup organize /media/SDCARD /home/me/Photos
 
 photo-cleanup is configured with common defaults, to ignore all hidden and
 non-image files. However, it supports multiple options to change destination
 directory structure, allow hidden and non-image files and many others.
+
+# Features and ToDo
+- [x] extract date/time from jpegs files
+- [x] allow to customize destination directory format
+- [ ] organize duplicate filenames by appending -1, -2 etc.
+- [ ] detect binary identical files
+- [ ] extract date/time from mp4 files
+- [ ] organize using hard links instead of moving files
 
 # No Warranty
 
@@ -45,10 +54,13 @@ before letting photo-cleanup lose. See license for details.
 
 # Thanks
 
-Thanks to Bobi Jones whose jpeg is used as test data.
-http://www.publicdomainpictures.net/view-image.php?image=22282
+Thanks to Bobi Jones whose
+[jpeg](http://www.publicdomainpictures.net/view-image.php?image=22282) is used
+as test data.
 
 [License-Url]: https://opensource.org/licenses/Apache-2.0
 [License-Image]: https://img.shields.io/badge/license-Apache%202.0-blue.svg?maxAge=2592000
 [Build-Status-Url]: http://travis-ci.org/mikijov/photo-cleanup
 [Build-Status-Image]: https://travis-ci.org/mikijov/photo-cleanup.svg?branch=master
+[ReportCard-Url]: https://goreportcard.com/report/github.com/mikijov/photo-cleanup
+[ReportCard-Image]: https://goreportcard.com/badge/github.com/mikijov/photo-cleanup

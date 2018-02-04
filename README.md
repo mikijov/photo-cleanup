@@ -1,6 +1,9 @@
 photo-cleanup
 =============
 
+[![License][License-Image]][License-Url]
+[![Build][Build-Status-Image]][Build-Status-Url]
+
 photo-cleanup is a photo organizer.
 
     $>photo-cleanup help organize
@@ -44,3 +47,8 @@ before letting photo-cleanup lose. See license for details.
 
 Thanks to Bobi Jones whose jpeg is used as test data.
 http://www.publicdomainpictures.net/view-image.php?image=22282
+
+[License-Url]: https://opensource.org/licenses/Apache-2.0
+[License-Image]: https://img.shields.io/badge/license-Apache%202.0-blue.svg?maxAge=2592000
+[Build-Status-Url]: http://travis-ci.org/mikijov/photo-cleanup
+[Build-Status-Image]: https://travis-ci.org/mikijov/photo-cleanup.svg?branch=master

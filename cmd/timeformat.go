@@ -42,8 +42,8 @@ func TimeFormat(format string) string {
 		{"SS", "05"},
 		{"ss", "05"},
 		{"tt", "PM"},
-		{"Z", "MST"},
 		{"ZZZ", "MST"},
+		{"Z", "MST"},
 	}
 
 	retVal := format

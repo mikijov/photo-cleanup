@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestAcceptFile(t *testing.T) {
@@ -304,6 +305,15 @@ func TestMain(m *testing.M) {
 	verbose = false
 	quiet = true
 
+	mtime, err := time.Parse(time.RFC3339, "2018-01-01T12:00:00Z")
+	if err != nil {
+		fmt.Printf("Problem setting up test time. (%s)\n", err)
+		os.Exit(1)
+	}
+	if err := os.Chtimes("../test/no-exif.jpg", mtime, mtime); err != nil {
+		fmt.Printf("Unable to change test file modification time. (%s)\n", err)
+		os.Exit(1)
+	}
 	if err := os.Chmod("../test/not-readable.jpg", 0200); err != nil {
 		fmt.Printf("Unable to change test file permission. (%s)\n", err)
 		os.Exit(1)

@@ -44,9 +44,9 @@ func TestAcceptFile(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		MinSize = test.MinSize
-		AllFiles = test.AllFiles
-		HiddenFiles = test.HiddenFiles
+		minSize = test.MinSize
+		allFiles = test.AllFiles
+		hiddenFiles = test.HiddenFiles
 
 		info, err := os.Lstat(test.path)
 		if err != nil {
@@ -94,10 +94,10 @@ func TestGetFiles(t *testing.T) {
 		"../test/VID_20181231_203040.mp4": {"../test/VID_20181231_203040.mp4", "", "", mkInfo("../test/VID_20181231_203040.mp4"), ""},
 	}
 
-	AllFiles = true
-	HiddenFiles = true
-	MinSize = 0
-	UseFileTime = false
+	allFiles = true
+	hiddenFiles = true
+	minSize = 0
+	useFileTime = false
 
 	files, err := getFiles("../test")
 	if err != nil {
@@ -126,7 +126,7 @@ func TestGetFiles(t *testing.T) {
 		}
 	}
 
-	for test, _ := range expected {
+	for test := range expected {
 		t.Errorf("expected but not found: %s", test)
 	}
 }
@@ -170,7 +170,7 @@ func TestEvaluate(t *testing.T) {
 		})
 	}
 
-	UseFileTime = false
+	useFileTime = false
 	evaluate(files, "dest")
 
 	for _, file := range files {
@@ -195,7 +195,7 @@ func TestEvaluate(t *testing.T) {
 		}
 	}
 
-	for test, _ := range expected {
+	for test := range expected {
 		t.Errorf("expected but not found: %s", test)
 	}
 }
@@ -218,7 +218,7 @@ func TestEvaluateFallbackToFileTime(t *testing.T) {
 		}
 	}
 
-	UseFileTime = true
+	useFileTime = true
 	evaluate(files, "dest")
 
 	for i, file := range files {
@@ -300,9 +300,9 @@ func TestExecute(t *testing.T) {
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
 
-	DestinationDirectoryFormat = TimeFormat(DestinationDirectoryFormat)
-	Verbose = false
-	Quiet = true
+	destinationDirectoryFormat = TimeFormat(destinationDirectoryFormat)
+	verbose = false
+	quiet = true
 
 	if err := os.Chmod("../test/not-readable.jpg", 0200); err != nil {
 		fmt.Printf("Unable to change test file permission. (%s)\n", err)

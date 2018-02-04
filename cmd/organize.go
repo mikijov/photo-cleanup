@@ -27,17 +27,17 @@ import (
 	"github.com/xor-gate/goexif2/exif"
 )
 
-var DestinationDirectoryFormat string
-var MinSize int64
-var AllFiles bool
-var HiddenFiles bool
-var UseExifTime bool
-var UseFileTime bool
-var UseFilenameEncodedTime bool
-var DryRun bool
+var destinationDirectoryFormat string
+var minSize int64
+var allFiles bool
+var hiddenFiles bool
+var useExifTime bool
+var useFileTime bool
+var useFilenameEncodedTime bool
+var dryRun bool
 
-var FilenameWithTimeRE = regexp.MustCompile("^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6}).(?i:jpg|mp4)$")
-var TimeLayoutFromFilenameWithDate = TimeFormat("yyyymmdd_HHMMSS")
+var filenameWithTimeRE = regexp.MustCompile("^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6}).(?i:jpg|mp4)$")
+var timeLayoutFromFilenameWithDate = TimeFormat("yyyymmdd_HHMMSS")
 
 var acceptedFileTypes = map[string]bool{
 	".jpg":  true,
@@ -57,7 +57,7 @@ var organizeCmd = &cobra.Command{
 	// to quickly create a Cobra application.`,
 	Args: cobra.ExactArgs(2),
 	PreRun: func(cmd *cobra.Command, args []string) {
-		DestinationDirectoryFormat = TimeFormat(DestinationDirectoryFormat)
+		destinationDirectoryFormat = TimeFormat(destinationDirectoryFormat)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		organize(args[0], args[1])
@@ -71,14 +71,14 @@ func init() {
 	// and all subcommands, e.g.:
 	// organizeCmd.PersistentFlags().String("foo", "", "A help for foo")
 
-	organizeCmd.Flags().StringVar(&DestinationDirectoryFormat, "dir-fmt", "yyyy/mm", "Directory format")
-	organizeCmd.Flags().Int64Var(&MinSize, "min-size", 0, "Minimum file size to consider for processing.")
-	organizeCmd.Flags().BoolVar(&AllFiles, "all-files", false, "Process all files. Default is only images (jpg).")
-	organizeCmd.Flags().BoolVar(&HiddenFiles, "hidden-files", false, "Process hidden files. Default is only normal files.")
-	organizeCmd.Flags().BoolVar(&UseExifTime, "use-exif-time", true, "Use time from exif meta data.")
-	organizeCmd.Flags().BoolVar(&UseFileTime, "use-file-time", false, "Use file modification time when no meta data.")
-	organizeCmd.Flags().BoolVar(&UseFilenameEncodedTime, "use-filename-encoded-time", true, "Attempt to parse time from filename.")
-	organizeCmd.Flags().BoolVarP(&DryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
+	organizeCmd.Flags().StringVar(&destinationDirectoryFormat, "dir-fmt", "yyyy/mm", "Directory format")
+	organizeCmd.Flags().Int64Var(&minSize, "min-size", 0, "Minimum file size to consider for processing.")
+	organizeCmd.Flags().BoolVar(&allFiles, "all-files", false, "Process all files. Default is only images (jpg).")
+	organizeCmd.Flags().BoolVar(&hiddenFiles, "hidden-files", false, "Process hidden files. Default is only normal files.")
+	organizeCmd.Flags().BoolVar(&useExifTime, "use-exif-time", true, "Use time from exif meta data.")
+	organizeCmd.Flags().BoolVar(&useFileTime, "use-file-time", false, "Use file modification time when no meta data.")
+	organizeCmd.Flags().BoolVar(&useFilenameEncodedTime, "use-filename-encoded-time", true, "Attempt to parse time from filename.")
+	organizeCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
 }
 
 type fileinfo struct {
@@ -101,14 +101,14 @@ func acceptFile(info os.FileInfo) (accepted bool, reason string) {
 	}
 
 	filename := info.Name()
-	if !HiddenFiles && filename[0] == '.' {
+	if !hiddenFiles && filename[0] == '.' {
 		return false, "hidden file"
 	}
 	ext := strings.ToLower(filepath.Ext(filename))
-	if !AllFiles && !acceptedFileTypes[ext] {
+	if !allFiles && !acceptedFileTypes[ext] {
 		return false, "not image file"
 	}
-	if info.Size() < MinSize {
+	if info.Size() < minSize {
 		return false, "small file"
 	}
 	return true, ""
@@ -164,7 +164,7 @@ func evaluate(files []*fileinfo, dest string) {
 
 		foundTime := false
 
-		if !foundTime && UseExifTime {
+		if !foundTime && useExifTime {
 			is, err := os.Open(file.path)
 			if err != nil {
 				Info("%s: error opening file (%s)", file.path, err)
@@ -179,14 +179,16 @@ func evaluate(files []*fileinfo, dest string) {
 						file.time = time
 					}
 				}
-				is.Close()
+				if err := is.Close(); err != nil {
+					Print("%s: unexpected error closing read stream (%s)", file.path, err)
+				}
 			}
 		}
 
-		if !foundTime && UseFilenameEncodedTime {
-			match := FilenameWithTimeRE.FindStringSubmatch(file.info.Name())
+		if !foundTime && useFilenameEncodedTime {
+			match := filenameWithTimeRE.FindStringSubmatch(file.info.Name())
 			if match != nil {
-				time, err := time.Parse(TimeLayoutFromFilenameWithDate, match[1])
+				time, err := time.Parse(timeLayoutFromFilenameWithDate, match[1])
 				if err == nil {
 					foundTime = true
 					file.time = time
@@ -194,7 +196,7 @@ func evaluate(files []*fileinfo, dest string) {
 			}
 		}
 
-		if !foundTime && UseFileTime {
+		if !foundTime && useFileTime {
 			file.time = file.info.ModTime()
 			foundTime = true
 		}
@@ -205,7 +207,7 @@ func evaluate(files []*fileinfo, dest string) {
 			continue
 		}
 
-		newDir := file.time.Format(DestinationDirectoryFormat)
+		newDir := file.time.Format(destinationDirectoryFormat)
 		file.newDir = filepath.Join(dest, newDir)
 		file.newPath = filepath.Join(file.newDir, file.info.Name())
 	}
@@ -274,7 +276,7 @@ func execute(files []*fileinfo) {
 			continue
 		}
 
-		if DryRun {
+		if dryRun {
 			file.message = fmt.Sprintf("mv %s %s", file.path, file.newPath)
 			Print("%s\n", file.message)
 		} else {

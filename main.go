@@ -14,8 +14,10 @@
 
 package main
 
-import "mikijov/photo-cleanup/cmd"
+import "github.com/mikijov/photo-cleanup/cmd"
 
 func main() {
+	cmd.InitProdOs()
+
 	cmd.Execute()
 }

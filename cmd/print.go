@@ -16,17 +16,19 @@ package cmd
 
 import "fmt"
 
-var Quiet = false
-var Verbose = true
+var quiet = false
+var verbose = true
 
+// Info is a wrapper for fmt.Printf but is only printed when verbose && !quiet.
 func Info(format string, args ...interface{}) {
-	if Verbose && !Quiet {
+	if verbose && !quiet {
 		fmt.Printf(format, args...)
 	}
 }
 
+// Print is a wrapper for fmt.Printf but is only printed !quiet.
 func Print(format string, args ...interface{}) {
-	if !Quiet {
+	if !quiet {
 		fmt.Printf(format, args...)
 	}
 }

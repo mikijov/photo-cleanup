@@ -30,10 +30,11 @@ var rootCmd = &cobra.Command{
 	Short: "Photo organizer.",
 	Long: `photo-cleanup is a photo organizer.
 
-RETURN CODES:
-  0 - indicates success without any errors.
-  1 - means photo-cleanup encountered errors while processing, but at least some work was performed.
-  2 - indicates complete failure, meaning photo-cleanup could not do any part of the requested work.`,
+See help for individual commands for more help.`,
+	// RETURN CODES:
+	//   0 - indicates success without any errors.
+	//   1 - means photo-cleanup encountered errors while processing, but at least some work was performed.
+	//   2 - indicates complete failure, meaning photo-cleanup could not do any part of the requested work.`,
 
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -56,8 +57,8 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.photo-cleanup.yaml)")
-	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "display more information while processing")
-	rootCmd.PersistentFlags().BoolVarP(&Quiet, "quiet", "q", false, "display no information while processing")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "display more information while processing")
+	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "display no information while processing")
 	// rootCmd.PersistentFlags().BoolVarP(&WarningsAsErrors, "warnings-as-errors", "w", false, "treat all warnings as errors")
 
 	// Cobra also supports local flags, which will only run

@@ -77,12 +77,16 @@ func CopyDirectory(src, dest string) {
 				panic(fmt.Sprintf("did not write whole file; %d!=%d", written, info.Size()))
 			}
 
-			in.Close()
+			if err := in.Close(); err != nil {
+				panic(err)
+			}
 
 			if err := out.Chmod(info.Mode() & os.ModePerm); err != nil {
 				panic(err)
 			}
-			out.Close()
+			if err := out.Close(); err != nil {
+				panic(err)
+			}
 		}
 		return nil
 	})

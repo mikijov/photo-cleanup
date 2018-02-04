@@ -1,14 +1,32 @@
+// Copyright © 2018 Milutin Jovanović jovanovic.milutin@gmail.com
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package cmd
 
 import (
 	"os"
 )
 
+// OsInterface encapsulates all functions from os package which make modifications
+// in the file-system.
 type OsInterface interface {
 	MkdirAll(path string, mode os.FileMode) error
 	Rename(oldpath, newpath string) error
 }
 
+// OS points to implementation of OsInterface and is initialized by a call to
+// InitProdOs() or initMockOs()
 var OS OsInterface
 
 type prodOs struct{}
@@ -21,10 +39,13 @@ func (this *prodOs) Rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
 }
 
-func initProdOs() {
+// InitProdOs initializes OsInterface with production version which calls
+// corresponding os package functions.
+func InitProdOs() {
 	OS = &prodOs{}
 }
 
+// MkdirAllParams holds values describing mocked calls to MkdirAll.
 type MkdirAllParams struct {
 	called int
 	path   string
@@ -32,6 +53,7 @@ type MkdirAllParams struct {
 	retval error
 }
 
+// RenameParams holds values describing mocked calls to Rename.
 type RenameParams struct {
 	called  int
 	oldpath string
@@ -45,14 +67,14 @@ type mockOs struct {
 }
 
 func (this *mockOs) MkdirAll(path string, mode os.FileMode) error {
-	this.mkdirall.called += 1
+	this.mkdirall.called++
 	this.mkdirall.path = path
 	this.mkdirall.mode = mode
 	return this.mkdirall.retval
 }
 
 func (this *mockOs) Rename(oldpath, newpath string) error {
-	this.rename.called += 1
+	this.rename.called++
 	this.rename.oldpath = oldpath
 	this.rename.newpath = newpath
 	return this.rename.retval

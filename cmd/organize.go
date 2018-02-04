@@ -167,11 +167,11 @@ func evaluate(files []*fileinfo, dest string) {
 		if !foundTime && useExifTime {
 			is, err := os.Open(file.path)
 			if err != nil {
-				Info("%s: error opening file (%s)", file.path, err)
+				Info("\r%s: error opening file (%s)\n", file.path, err)
 			} else {
 				exinfo, err := exif.Decode(is)
 				if err != nil {
-					Info("%s: error reading meta data (%s)", file.path, err)
+					Info("\r%s: error reading meta data (%s)\n", file.path, err)
 				} else {
 					time, err := exinfo.DateTime()
 					if err == nil {
@@ -180,7 +180,7 @@ func evaluate(files []*fileinfo, dest string) {
 					}
 				}
 				if err := is.Close(); err != nil {
-					Print("%s: unexpected error closing read stream (%s)", file.path, err)
+					Print("\r%s: unexpected error closing read stream (%s)\n", file.path, err)
 				}
 			}
 		}
@@ -234,7 +234,7 @@ func evaluate(files []*fileinfo, dest string) {
 				file.newDir = ""
 				file.newPath = ""
 				file.message = fmt.Sprintf("%s: duplicate: %s", file.path, prevFile.newPath)
-				Print(file.message)
+				Print("\r%s\n", file.message)
 			} else {
 				prevFile = file
 			}

@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -232,6 +233,66 @@ func TestEvaluateFallbackToFileTime(t *testing.T) {
 		}
 		if diff, equal := Diff(expected[i].info, file.info); !equal {
 			t.Errorf("%s: FileInfo: %s", expected[i].path, diff)
+		}
+	}
+}
+
+func TestExecute(t *testing.T) {
+	expected := []struct {
+		path     string
+		newPath  string
+		mkdirall int
+		rename   int
+		message  string
+	}{
+		{"../test/exif-20180101.jpg", "", 0, 0, ""},
+		{"../test/exif-20180101.jpg", "dest/2018/01/exif-20180101.jpg", 1, 1, ""},
+		{"../test/exif-20180101.jpg", "../test/exif-20180101.jpg", 0, 0, "../test/exif-20180101.jpg: same file"},
+		{"../test/exif-20180101.jpg", "../test/exif-20180201.jpg", 0, 0, "../test/exif-20180201.jpg: already exists"},
+		{"../test/exif-20180101.jpg", "/root/non-existant.tmp", 0, 0, "/root/non-existant.tmp: problem checking destination: lstat /root/non-existant.tmp: permission denied"},
+	}
+
+	files := make([]*fileinfo, 1)
+
+	for _, test := range expected {
+		_, dir := filepath.Split(test.newPath)
+		info, err := os.Lstat(test.path)
+		if err != nil {
+			panic(err)
+		}
+		files[0] = &fileinfo{
+			path:    test.path,
+			newDir:  dir,
+			newPath: test.newPath,
+			info:    info,
+		}
+
+		OS := initMockOs()
+
+		execute(files)
+
+		if OS.mkdirall.called != test.mkdirall {
+			t.Errorf("%s: mkdirall not called (%d)", test.path, OS.mkdirall.called)
+		} else if OS.mkdirall.called > 0 {
+			if OS.mkdirall.path != dir {
+				t.Errorf("%s: mkdirall wrong parameter(%s)", test.path, OS.mkdirall.path)
+			}
+			if OS.mkdirall.mode != 0777 {
+				t.Errorf("%s: mkdirall wrong parameter(%o)", test.path, OS.mkdirall.mode)
+			}
+		}
+		if OS.rename.called != test.rename {
+			t.Errorf("%s: rename not called (%d)", test.path, OS.rename.called)
+		} else if OS.rename.called > 0 {
+			if OS.rename.oldpath != test.path {
+				t.Errorf("%s: rename wrong parameter(%s)", test.path, OS.rename.oldpath)
+			}
+			if OS.rename.newpath != test.newPath {
+				t.Errorf("%s: rename wrong parameter(%s)", test.path, OS.rename.newpath)
+			}
+		}
+		if files[0].message != test.message {
+			t.Errorf("%s: invalid message \"%s\"", test.path, files[0].message)
 		}
 	}
 }

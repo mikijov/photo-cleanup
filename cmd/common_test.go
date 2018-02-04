@@ -15,6 +15,11 @@
 package cmd
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+
 	"github.com/d4l3k/messagediff"
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -34,4 +39,54 @@ func Diff(a, b interface{}) (diff string, equal bool) {
 	}
 	// otherwise compare them as structs
 	return messagediff.PrettyDiff(a, b)
+}
+
+func CopyDirectory(src, dest string) {
+	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			panic(err)
+		}
+		if path == src {
+			return nil
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			panic(err)
+		}
+		newPath := filepath.Join(dest, rel)
+
+		if info.IsDir() {
+			if err := os.Mkdir(newPath, 0777); err != nil {
+				panic(err)
+			}
+		} else {
+			in, err := os.Open(path)
+			if err != nil {
+				panic(err)
+			}
+			out, err := os.Create(newPath)
+			if err != nil {
+				panic(err)
+			}
+
+			written, err := io.Copy(out, in)
+			if err != nil {
+				panic(err)
+			} else if written != info.Size() {
+				panic(fmt.Sprintf("did not write whole file; %d!=%d", written, info.Size()))
+			}
+
+			in.Close()
+
+			if err := out.Chmod(info.Mode() & os.ModePerm); err != nil {
+				panic(err)
+			}
+			out.Close()
+		}
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
 }

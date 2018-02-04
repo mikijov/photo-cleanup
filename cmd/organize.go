@@ -260,18 +260,16 @@ func execute(files []*fileinfo) {
 			if os.IsNotExist(err) {
 				// all is good, proceed
 			} else {
-				file.message = fmt.Sprintf("%s: problem checking destination: %s", err)
+				file.message = fmt.Sprintf("%s: problem checking destination: %s", file.newPath, err)
 				Print("%s\n", file.message)
 				continue
 			}
-		} else {
-			file.message = fmt.Sprintf("%s: already exists", file.newPath)
+		} else if os.SameFile(file.info, dest) {
+			file.message = fmt.Sprintf("%s: same file", file.newPath)
 			Print("%s\n", file.message)
 			continue
-		}
-
-		if os.SameFile(file.info, dest) {
-			file.message = fmt.Sprintf("%s: same file", file.newPath)
+		} else {
+			file.message = fmt.Sprintf("%s: already exists", file.newPath)
 			Print("%s\n", file.message)
 			continue
 		}
@@ -280,10 +278,10 @@ func execute(files []*fileinfo) {
 			file.message = fmt.Sprintf("mv %s %s", file.path, file.newPath)
 			Print("%s\n", file.message)
 		} else {
-			if err := os.MkdirAll(file.newDir, 0777); err != nil {
+			if err := OS.MkdirAll(file.newDir, 0777); err != nil {
 				file.message = fmt.Sprintf("%s: failed to create directory: %s", file.newDir, err)
 				Print("%s\n", file.message)
-			} else if err := os.Rename(file.path, file.newPath); err != nil {
+			} else if err := OS.Rename(file.path, file.newPath); err != nil {
 				file.message = fmt.Sprintf("%s: failed to copy: %s", file.newPath, err)
 				Print("%s\n", file.message)
 			}

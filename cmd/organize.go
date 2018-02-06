@@ -35,6 +35,7 @@ var useExifTime bool
 var useFileTime bool
 var useFilenameEncodedTime bool
 var dryRun bool
+var renameDuplicates bool
 
 var filenameWithTimeRE = regexp.MustCompile("^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6}).(?i:jpg|mp4)$")
 var timeLayoutFromFilenameWithDate = TimeFormat("yyyymmdd_HHMMSS")
@@ -79,6 +80,7 @@ func init() {
 	organizeCmd.Flags().BoolVar(&useFileTime, "use-file-time", false, "Use file modification time when no meta data.")
 	organizeCmd.Flags().BoolVar(&useFilenameEncodedTime, "use-filename-encoded-time", true, "Attempt to parse time from filename.")
 	organizeCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
+	organizeCmd.Flags().BoolVar(&renameDuplicates, "rename-duplicates", false, "Rename duplicates by appending -1, -2 etc.")
 }
 
 type fileinfo struct {
@@ -212,6 +214,12 @@ func evaluate(files []*fileinfo, dest string) {
 		file.newPath = filepath.Join(file.newDir, file.info.Name())
 	}
 
+	Print("\rEvaluated %d out of %d files.\n", fileCount, fileCount)
+}
+
+func processDuplicates(files []*fileinfo) {
+	// sort files by newPath, modTime then size to make duplicates adjacent as
+	// well to prioritize older and larger photos
 	sort.Slice(files, func(i, j int) bool {
 		// prioritize older files, first by path/meta
 		l, r := files[i], files[j]
@@ -227,28 +235,29 @@ func evaluate(files []*fileinfo, dest string) {
 	})
 
 	// find photos that generate same newPath and mark them as duplicates
-	var prevFile *fileinfo
-	for _, file := range files {
-		if prevFile != nil && file.newPath != "" {
-			if file.newPath == prevFile.newPath {
-				file.newDir = ""
-				file.newPath = ""
-				file.message = fmt.Sprintf("%s: duplicate: %s", file.path, prevFile.newPath)
-				Print("\r%s\n", file.message)
+	if !renameDuplicates {
+		var prevFile *fileinfo
+		for _, file := range files {
+			if prevFile != nil && file.newPath != "" {
+				if file.newPath == prevFile.newPath {
+					file.newDir = ""
+					file.newPath = ""
+					file.message = fmt.Sprintf("%s: duplicate: %s", file.path, prevFile.newPath)
+					Print("\r%s\n", file.message)
+				} else {
+					prevFile = file
+				}
 			} else {
 				prevFile = file
 			}
-		} else {
-			prevFile = file
 		}
 	}
-
-	Print("\rEvaluated %d out of %d files.\n", fileCount, fileCount)
 }
 
 func execute(files []*fileinfo) {
 	fileCount := len(files)
 
+FILES:
 	for i, file := range files {
 		Print("\rMoved %d out of %d files.", i, fileCount)
 
@@ -256,27 +265,49 @@ func execute(files []*fileinfo) {
 			continue
 		}
 
+		var namePostfix int // 0 if
+		var ext string
+		var name string
 		// guard against overwriting
-		dest, err := os.Lstat(file.newPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				// all is good, proceed
-			} else {
-				file.message = fmt.Sprintf("%s: problem checking destination: %s", file.newPath, err)
+	DUPES:
+		for {
+			dest, err := os.Lstat(file.newPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					// all is good, proceed
+					break DUPES
+				} else {
+					file.message = fmt.Sprintf("%s: problem checking destination: %s", file.newPath, err)
+					Print("\r%s\n", file.message)
+					continue FILES
+				}
+			} else if os.SameFile(file.info, dest) {
+				file.message = fmt.Sprintf("%s: same file", file.newPath)
 				Print("\r%s\n", file.message)
-				continue
+				continue FILES
+			} else if renameDuplicates {
+				if namePostfix > 999 {
+					file.message = fmt.Sprintf("%s: too many identical files", file.newPath)
+					Print("\r%s\n", file.message)
+					continue FILES
+				} else if namePostfix > 0 {
+					namePostfix++
+				} else {
+					namePostfix = 1
+					name = file.info.Name()
+					ext = filepath.Ext(name)
+					name = name[:len(name)-len(ext)]
+				}
+				file.newPath = filepath.Join(file.newDir, fmt.Sprintf("%s-%d%s", name, namePostfix, ext))
+			} else {
+				file.message = fmt.Sprintf("%s: already exists", file.newPath)
+				Print("\r%s\n", file.message)
+				continue FILES
 			}
-		} else if os.SameFile(file.info, dest) {
-			file.message = fmt.Sprintf("%s: same file", file.newPath)
-			Print("\r%s\n", file.message)
-			continue
-		} else {
-			file.message = fmt.Sprintf("%s: already exists", file.newPath)
-			Print("\r%s\n", file.message)
-			continue
 		}
 
 		if dryRun {
+			// TODO: warn that dry run does not account for duplicates
 			file.message = fmt.Sprintf("mv %s %s", file.path, file.newPath)
 			Print("\r%s\n", file.message)
 		} else {
@@ -300,5 +331,6 @@ func organize(src, dest string) {
 		return
 	}
 	evaluate(files, dest)
+	processDuplicates(files)
 	execute(files)
 }

@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -87,12 +88,13 @@ func TestGetFiles(t *testing.T) {
 		"../test/.hidden-file.jpg": {"../test/.hidden-file.jpg", "", "", mkInfo("../test/.hidden-file.jpg"), ""},
 		"../test/no-exif.jpg":      {"../test/no-exif.jpg", "", "", mkInfo("../test/no-exif.jpg"), ""},
 		// "../test/symlink.jpg":             // should not appear
-		"../test/jpg.wrong-extension":     {"../test/jpg.wrong-extension", "", "", mkInfo("../test/jpg.wrong-extension"), ""},
-		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "", "", mkInfo("../test/duplicate.jpg"), ""},
-		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), ""},
-		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "", "", mkInfo("../test/duplicate/duplicate.jpg"), ""},
-		"../test/IMG_20180304_123456.jpg": {"../test/IMG_20180304_123456.jpg", "", "", mkInfo("../test/IMG_20180304_123456.jpg"), ""},
-		"../test/VID_20181231_203040.mp4": {"../test/VID_20181231_203040.mp4", "", "", mkInfo("../test/VID_20181231_203040.mp4"), ""},
+		"../test/jpg.wrong-extension":       {"../test/jpg.wrong-extension", "", "", mkInfo("../test/jpg.wrong-extension"), ""},
+		"../test/duplicate.jpg":             {"../test/duplicate.jpg", "", "", mkInfo("../test/duplicate.jpg"), ""},
+		"../test/empty.jpg":                 {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), ""},
+		"../test/duplicate/duplicate.jpg":   {"../test/duplicate/duplicate.jpg", "", "", mkInfo("../test/duplicate/duplicate.jpg"), ""},
+		"../test/duplicate/duplicate-1.jpg": {"../test/duplicate/duplicate-1.jpg", "", "", mkInfo("../test/duplicate/duplicate-1.jpg"), ""},
+		"../test/IMG_20180304_123456.jpg":   {"../test/IMG_20180304_123456.jpg", "", "", mkInfo("../test/IMG_20180304_123456.jpg"), ""},
+		"../test/VID_20181231_203040.mp4":   {"../test/VID_20181231_203040.mp4", "", "", mkInfo("../test/VID_20181231_203040.mp4"), ""},
 	}
 
 	allFiles = true
@@ -157,7 +159,7 @@ func TestEvaluate(t *testing.T) {
 		"../test/no-exif.jpg":             {"../test/no-exif.jpg", "", "", mkInfo("../test/no-exif.jpg"), "../test/no-exif.jpg: could not determine date/time"},
 		"../test/jpg.wrong-extension":     {"../test/jpg.wrong-extension", "dest/2017/02", "dest/2017/02/jpg.wrong-extension", mkInfo("../test/jpg.wrong-extension"), ""},
 		"../test/duplicate.jpg":           {"../test/duplicate.jpg", "dest/2017/02", "dest/2017/02/duplicate.jpg", mkInfo("../test/duplicate.jpg"), ""},
-		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "dest/2017/02", "", mkInfo("../test/duplicate/duplicate.jpg"), "../test/duplicate/duplicate.jpg: duplicate: dest/2017/02/duplicate.jpg"},
+		"../test/duplicate/duplicate.jpg": {"../test/duplicate/duplicate.jpg", "dest/2017/02", "dest/2017/02/duplicate.jpg", mkInfo("../test/duplicate/duplicate.jpg"), ""},
 		"../test/not-readable.jpg":        {"../test/not-readable.jpg", "", "", mkInfo("../test/not-readable.jpg"), "../test/not-readable.jpg: could not determine date/time"},
 		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), "../test/empty.jpg: could not determine date/time"},
 		"../test/IMG_20180304_123456.jpg": {"../test/IMG_20180304_123456.jpg", "dest/2018/03", "dest/2018/03/IMG_20180304_123456.jpg", mkInfo("../test/IMG_20180304_123456.jpg"), ""},
@@ -201,6 +203,39 @@ func TestEvaluate(t *testing.T) {
 	}
 }
 
+func TestProcessDuplicates(t *testing.T) {
+	files := make([]*fileinfo, 2)
+	files[0] = &fileinfo{
+		path:    "../test/duplicate.jpg",
+		newDir:  "dest/2017/02",
+		newPath: "dest/2017/02/duplicate.jpg",
+		info:    mkInfo("../test/duplicate.jpg"),
+	}
+	files[1] = &fileinfo{
+		path:    "../test/duplicate/duplicate.jpg",
+		newDir:  "dest/2017/02",
+		newPath: "dest/2017/02/duplicate.jpg",
+		info:    mkInfo("../test/duplicate/duplicate.jpg"),
+	}
+
+	useFileTime = false
+	processDuplicates(files)
+
+	if files[0].newPath != "dest/2017/02/duplicate.jpg" {
+		t.Errorf("%s: unexpected newPath (%s)", files[0].path, files[0].newPath)
+	}
+	if files[0].message != "" {
+		t.Errorf("%s: unexpected message (%s)", files[0].path, files[0].message)
+	}
+
+	if files[1].newPath != "" {
+		t.Errorf("%s: unexpected message (%s)", files[1].path, files[1].newPath)
+	}
+	if files[1].message != "../test/duplicate/duplicate.jpg: duplicate: dest/2017/02/duplicate.jpg" {
+		t.Errorf("%s: unexpected message (%s)", files[1].path, files[1].message)
+	}
+}
+
 func TestEvaluateFallbackToFileTime(t *testing.T) {
 	var expected = []struct {
 		path    string
@@ -240,6 +275,72 @@ func TestEvaluateFallbackToFileTime(t *testing.T) {
 
 func TestExecute(t *testing.T) {
 	expected := []struct {
+		path      string
+		newDir    string
+		newPath   string
+		mkdirall  int
+		rename    int
+		message   string
+		mkdirErr  error
+		renameErr error
+	}{
+		{"../test/exif-20180101.jpg", "", "", 0, 0, "", nil, nil},
+		{"../test/exif-20180101.jpg", "dest/2018/01", "dest/2018/01/exif-20180101.jpg", 1, 1, "", nil, nil},
+		{"../test/exif-20180101.jpg", "../test", "../test/exif-20180101.jpg", 0, 0, "../test/exif-20180101.jpg: same file", nil, nil},
+		{"../test/exif-20180101.jpg", "../test", "../test/exif-20180201.jpg", 0, 0, "../test/exif-20180201.jpg: already exists", nil, nil},
+		{"../test/exif-20180101.jpg", "/root", "/root/non-existant.tmp", 0, 0, "/root/non-existant.tmp: problem checking destination: lstat /root/non-existant.tmp: permission denied", nil, nil},
+		{"../test/exif-20180101.jpg", "/root", "/root/non-existant.tmp", 0, 0, "/root/non-existant.tmp: problem checking destination: lstat /root/non-existant.tmp: permission denied", nil, nil},
+		{"../test/exif-20180101.jpg", "dest/2018/01", "dest/2018/01/exif-20180101.jpg", 1, 0, "dest/2018/01: failed to create directory: test", errors.New("test"), nil},
+		{"../test/exif-20180101.jpg", "dest/2018/01", "dest/2018/01/exif-20180101.jpg", 1, 1, "dest/2018/01/exif-20180101.jpg: failed to copy: test", nil, errors.New("test")},
+	}
+
+	dryRun = false
+	renameDuplicates = false
+
+	files := make([]*fileinfo, 1)
+
+	for _, test := range expected {
+		files[0] = &fileinfo{
+			path:    test.path,
+			newDir:  test.newDir,
+			newPath: test.newPath,
+			info:    mkInfo(test.path),
+		}
+
+		OS := initMockOs()
+		OS.mkdirall.retval = test.mkdirErr
+		OS.rename.retval = test.renameErr
+
+		execute(files)
+
+		if OS.mkdirall.called != test.mkdirall {
+			t.Errorf("%s: mkdirall not called (%d)", test.path, OS.mkdirall.called)
+		} else if OS.mkdirall.called > 0 {
+			if OS.mkdirall.path != test.newDir {
+				t.Errorf("%s: mkdirall wrong parameter(%s)", test.path, OS.mkdirall.path)
+			}
+			if OS.mkdirall.mode != 0777 {
+				t.Errorf("%s: mkdirall wrong parameter(%o)", test.path, OS.mkdirall.mode)
+			}
+		}
+		if OS.rename.called != test.rename {
+			t.Errorf("%s: rename not called (%d)", test.path, OS.rename.called)
+		} else if OS.rename.called > 0 {
+			if OS.rename.oldpath != test.path {
+				t.Errorf("%s: rename wrong parameter(%s)", test.path, OS.rename.oldpath)
+			}
+			if OS.rename.newpath != test.newPath {
+				t.Errorf("%s: rename wrong parameter(%s)", test.path, OS.rename.newpath)
+			}
+		}
+		if files[0].message != test.message {
+			t.Errorf("%s: invalid message \"%s\"", test.path, files[0].message)
+		}
+	}
+}
+
+func TestExecuteDryRun(t *testing.T) {
+	expected := []struct {
 		path     string
 		newPath  string
 		mkdirall int
@@ -247,13 +348,16 @@ func TestExecute(t *testing.T) {
 		message  string
 	}{
 		{"../test/exif-20180101.jpg", "", 0, 0, ""},
-		{"../test/exif-20180101.jpg", "dest/2018/01/exif-20180101.jpg", 1, 1, ""},
+		{"../test/exif-20180101.jpg", "dest/2018/01/exif-20180101.jpg", 0, 0, "mv ../test/exif-20180101.jpg dest/2018/01/exif-20180101.jpg"},
 		{"../test/exif-20180101.jpg", "../test/exif-20180101.jpg", 0, 0, "../test/exif-20180101.jpg: same file"},
 		{"../test/exif-20180101.jpg", "../test/exif-20180201.jpg", 0, 0, "../test/exif-20180201.jpg: already exists"},
 		{"../test/exif-20180101.jpg", "/root/non-existant.tmp", 0, 0, "/root/non-existant.tmp: problem checking destination: lstat /root/non-existant.tmp: permission denied"},
 	}
 
 	files := make([]*fileinfo, 1)
+
+	dryRun = true
+	renameDuplicates = false
 
 	for _, test := range expected {
 		_, dir := filepath.Split(test.newPath)
@@ -294,6 +398,138 @@ func TestExecute(t *testing.T) {
 		}
 		if files[0].message != test.message {
 			t.Errorf("%s: invalid message \"%s\"", test.path, files[0].message)
+		}
+	}
+}
+
+func TestExecuteSingleDuplicateSkip(t *testing.T) {
+	files := []*fileinfo{
+		&fileinfo{
+			path:    "../test/duplicate.jpg",
+			newDir:  "../test/duplicate",
+			newPath: "../test/duplicate/duplicate.jpg",
+			info:    mkInfo("../test/duplicate.jpg"),
+		},
+	}
+
+	dryRun = false
+	renameDuplicates = false
+
+	OS := initMockOs()
+
+	execute(files)
+
+	if OS.mkdirall.called != 0 {
+		t.Errorf("mkdirall called (%d)", OS.mkdirall.called)
+	}
+	if OS.rename.called != 0 {
+		t.Errorf("rename called (%d)", OS.rename.called)
+	}
+
+	if files[0].newPath != "../test/duplicate/duplicate.jpg" {
+		t.Errorf("0: unexpected newPath (%s)", files[0].newPath)
+	}
+	if files[0].message != "../test/duplicate/duplicate.jpg: already exists" {
+		t.Errorf("0: unexpected message (%s)", files[0].message)
+	}
+}
+
+func TestExecuteSingleDuplicateRename(t *testing.T) {
+	files := []*fileinfo{
+		&fileinfo{
+			path:    "../test/duplicate.jpg",
+			newDir:  "../test/duplicate",
+			newPath: "../test/duplicate/duplicate.jpg",
+			info:    mkInfo("../test/duplicate.jpg"),
+		},
+	}
+
+	dryRun = false
+	renameDuplicates = true
+
+	OS := initMockOs()
+
+	execute(files)
+
+	if OS.mkdirall.called != 1 {
+		t.Errorf("mkdirall not called (%d)", OS.mkdirall.called)
+	} else if OS.mkdirall.called > 0 {
+		if OS.mkdirall.path != "../test/duplicate" {
+			t.Errorf("mkdirall wrong parameter (%s)", OS.mkdirall.path)
+		}
+		if OS.mkdirall.mode != 0777 {
+			t.Errorf("mkdirall wrong parameter (%o)", OS.mkdirall.mode)
+		}
+	}
+	if OS.rename.called != 1 {
+		t.Errorf("rename not called (%d)", OS.rename.called)
+	} else if OS.rename.called > 0 {
+		if OS.rename.oldpath != "../test/duplicate.jpg" {
+			t.Errorf("rename wrong parameter (%s)", OS.rename.oldpath)
+		}
+		if OS.rename.newpath != "../test/duplicate/duplicate-2.jpg" {
+			t.Errorf("rename wrong parameter (%s)", OS.rename.newpath)
+		}
+	}
+
+	if files[0].newPath != "../test/duplicate/duplicate-2.jpg" {
+		t.Errorf("0: unexpected newPath (%s)", files[0].newPath)
+	}
+	if files[0].message != "" {
+		t.Errorf("0: unexpected message (%s)", files[0].message)
+	}
+}
+
+func TestExecuteGroup(t *testing.T) {
+	expected := []struct {
+		path     string
+		newDir   string
+		newPath  string
+		newPath2 string
+		message  string
+	}{
+		// no destination; skip
+		{"../test/exif-20180101.jpg", "", "", "", ""},
+		// normal
+		{"../test/exif-20180101.jpg", "dest/2018/01", "dest/2018/01/exif-20180101.jpg", "dest/2018/01/exif-20180101.jpg", ""},
+		// src==dest; same file skip
+		{"../test/exif-20180101.jpg", "../test", "../test/exif-20180101.jpg", "../test/exif-20180101.jpg", "../test/exif-20180101.jpg: same file"},
+		// destination exists; skip
+		{"../test/duplicate.jpg", "../test/duplicate", "../test/duplicate/duplicate.jpg", "../test/duplicate/duplicate-2.jpg", ""},
+		// inaccessible destination
+		{"../test/exif-20180101.jpg", "/root", "/root/non-existant.tmp", "/root/non-existant.tmp", "/root/non-existant.tmp: problem checking destination: lstat /root/non-existant.tmp: permission denied"},
+	}
+
+	files := make([]*fileinfo, len(expected))
+	for i, test := range expected {
+		files[i] = &fileinfo{
+			path:    test.path,
+			newDir:  test.newDir,
+			newPath: test.newPath,
+			info:    mkInfo(test.path),
+		}
+	}
+
+	dryRun = false
+	renameDuplicates = true
+
+	OS := initMockOs()
+
+	execute(files)
+
+	if OS.mkdirall.called != 2 {
+		t.Errorf("mkdirall not called (%d)", OS.mkdirall.called)
+	}
+	if OS.rename.called != 2 {
+		t.Errorf("rename not called (%d)", OS.rename.called)
+	}
+
+	for i, test := range expected {
+		if files[i].newPath != test.newPath2 {
+			t.Errorf("%s: invalid newPath \"%s\"", test.path, files[i].newPath)
+		}
+		if files[i].message != test.message {
+			t.Errorf("%s: invalid message \"%s\"", test.path, files[i].message)
 		}
 	}
 }

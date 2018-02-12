@@ -17,12 +17,11 @@ package cmd
 import (
 	"os"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var cfgFile string
+var dryRun bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -51,43 +50,15 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.photo-cleanup.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "display more information while processing")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "display no information while processing")
+	organizeCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
 	// rootCmd.PersistentFlags().BoolVarP(&WarningsAsErrors, "warnings-as-errors", "w", false, "treat all warnings as errors")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			Print("%s\n", err)
-			os.Exit(1)
-		}
-
-		// Search config in home directory with name ".photo-cleanup" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".photo-cleanup")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		Print("Using config file: %s\n", viper.ConfigFileUsed())
-	}
 }

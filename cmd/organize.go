@@ -34,7 +34,6 @@ var hiddenFiles bool
 var useExifTime bool
 var useFileTime bool
 var useFilenameEncodedTime bool
-var dryRun bool
 var renameDuplicates bool
 
 var filenameWithTimeRE = regexp.MustCompile(`^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6})\.(?i:jpg|mp4|3gp)$`)
@@ -81,7 +80,6 @@ func init() {
 	organizeCmd.Flags().BoolVar(&useExifTime, "use-exif-time", true, "Use time from exif meta data.")
 	organizeCmd.Flags().BoolVar(&useFileTime, "use-file-time", false, "Use file modification time when no meta data.")
 	organizeCmd.Flags().BoolVar(&useFilenameEncodedTime, "use-filename-encoded-time", true, "Attempt to parse time from filename.")
-	organizeCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
 	organizeCmd.Flags().BoolVar(&renameDuplicates, "rename-duplicates", false, "Rename duplicates by appending -1, -2 etc.")
 }
 

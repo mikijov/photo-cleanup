@@ -2,16 +2,8 @@ photo-cleanup
 =============
 
 [![License][License-Image]][License-Url]
-[License-Url]: https://opensource.org/licenses/Apache-2.0
-[License-Image]: https://img.shields.io/badge/license-Apache%202.0-blue.svg?maxAge=2592000
-
 [![Build][Build-Status-Image]][Build-Status-Url]
-[Build-Status-Url]: http://travis-ci.org/mikijov/photo-cleanup
-[Build-Status-Image]: https://travis-ci.org/mikijov/photo-cleanup.svg?branch=master
-
 [![ReportCard][ReportCard-Image]][ReportCard-Url]
-[ReportCard-Url]: https://goreportcard.com/report/github.com/mikijov/photo-cleanup
-[ReportCard-Image]: https://goreportcard.com/badge/github.com/mikijov/photo-cleanup
 
 photo-cleanup is a photo organizer.
 
@@ -81,3 +73,10 @@ before letting photo-cleanup lose. See license for details.
 Thanks to Bobi Jones whose
 [jpeg](http://www.publicdomainpictures.net/view-image.php?image=22282) is used
 as test data.
+
+[License-Url]: https://opensource.org/licenses/Apache-2.0
+[License-Image]: https://img.shields.io/badge/license-Apache%202.0-blue.svg?maxAge=2592000
+[Build-Status-Url]: http://travis-ci.org/mikijov/photo-cleanup
+[Build-Status-Image]: https://travis-ci.org/mikijov/photo-cleanup.svg?branch=master
+[ReportCard-Url]: https://goreportcard.com/report/github.com/mikijov/photo-cleanup
+[ReportCard-Image]: https://goreportcard.com/badge/github.com/mikijov/photo-cleanup

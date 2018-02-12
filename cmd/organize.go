@@ -37,8 +37,10 @@ var useFilenameEncodedTime bool
 var dryRun bool
 var renameDuplicates bool
 
-var filenameWithTimeRE = regexp.MustCompile("^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6}).(?i:jpg|mp4)$")
+var filenameWithTimeRE = regexp.MustCompile(`^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6})\.(?i:jpg|mp4|3gp)$`)
 var timeLayoutFromFilenameWithDate = TimeFormat("yyyymmdd_HHMMSS")
+var filenameWithTimeRE2 = regexp.MustCompile(`^([[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2} [[:digit:]]{2}\.[[:digit:]]{2}\.[[:digit:]]{2})\.(?i:jpg|mp4|3gp)$`)
+var timeLayoutFromFilenameWithDate2 = TimeFormat("yyyy-mm-dd HH.MM.SS")
 
 var acceptedFileTypes = map[string]bool{
 	".jpg":  true,
@@ -191,6 +193,16 @@ func evaluate(files []*fileinfo, dest string) {
 			match := filenameWithTimeRE.FindStringSubmatch(file.info.Name())
 			if match != nil {
 				time, err := time.Parse(timeLayoutFromFilenameWithDate, match[1])
+				if err == nil {
+					foundTime = true
+					file.time = time
+				}
+			}
+		}
+		if !foundTime && useFilenameEncodedTime {
+			match := filenameWithTimeRE2.FindStringSubmatch(file.info.Name())
+			if match != nil {
+				time, err := time.Parse(timeLayoutFromFilenameWithDate2, match[1])
 				if err == nil {
 					foundTime = true
 					file.time = time

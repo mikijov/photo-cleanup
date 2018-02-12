@@ -94,6 +94,7 @@ func TestGetFiles(t *testing.T) {
 		"../test/duplicate/duplicate.jpg":   {"../test/duplicate/duplicate.jpg", "", "", mkInfo("../test/duplicate/duplicate.jpg"), ""},
 		"../test/duplicate/duplicate-1.jpg": {"../test/duplicate/duplicate-1.jpg", "", "", mkInfo("../test/duplicate/duplicate-1.jpg"), ""},
 		"../test/IMG_20180304_123456.jpg":   {"../test/IMG_20180304_123456.jpg", "", "", mkInfo("../test/IMG_20180304_123456.jpg"), ""},
+		"../test/2018-03-04 12.34.56.mp4":   {"../test/2018-03-04 12.34.56.mp4", "", "", mkInfo("../test/2018-03-04 12.34.56.mp4"), ""},
 		"../test/VID_20181231_203040.mp4":   {"../test/VID_20181231_203040.mp4", "", "", mkInfo("../test/VID_20181231_203040.mp4"), ""},
 	}
 
@@ -163,6 +164,7 @@ func TestEvaluate(t *testing.T) {
 		"../test/not-readable.jpg":        {"../test/not-readable.jpg", "", "", mkInfo("../test/not-readable.jpg"), "../test/not-readable.jpg: could not determine date/time"},
 		"../test/empty.jpg":               {"../test/empty.jpg", "", "", mkInfo("../test/empty.jpg"), "../test/empty.jpg: could not determine date/time"},
 		"../test/IMG_20180304_123456.jpg": {"../test/IMG_20180304_123456.jpg", "dest/2018/03", "dest/2018/03/IMG_20180304_123456.jpg", mkInfo("../test/IMG_20180304_123456.jpg"), ""},
+		"../test/2018-03-04 12.34.56.mp4": {"../test/2018-03-04 12.34.56.mp4", "dest/2018/03", "dest/2018/03/2018-03-04 12.34.56.mp4", mkInfo("../test/2018-03-04 12.34.56.mp4"), ""},
 		"../test/VID_20181231_203040.mp4": {"../test/VID_20181231_203040.mp4", "dest/2018/12", "dest/2018/12/VID_20181231_203040.mp4", mkInfo("../test/VID_20181231_203040.mp4"), ""},
 	}
 	files := make([]*fileinfo, 0, len(expected))

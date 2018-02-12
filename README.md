@@ -7,7 +7,7 @@ photo-cleanup
 
 photo-cleanup is a photo organizer.
 
-```bash
+```
 $ photo-cleanup help organize
 Moves photos from source into proper destination subdirectory.
 

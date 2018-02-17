@@ -78,7 +78,7 @@ func (this *dupeList) add(fi *fileinfo) {
 }
 
 func deleteFile(path string) error {
-	if dryRun || true {
+	if dryRun {
 		Print("rm \"%s\"\n", path)
 	} else {
 		err := OS.Remove(path)
@@ -171,7 +171,7 @@ func dedupeWorker(size int64, files []*fileinfo, availableMemory int64) error {
 	// calculate how much memory for each file can be loaded at once
 	maxChunkSize := availableMemory / int64(len(files))
 	maxChunkSize -= maxChunkSize % 4096 // round it to 4K
-	if maxChunkSize > preferredChunkSize {
+	if maxChunkSize == 0 || maxChunkSize > preferredChunkSize {
 		maxChunkSize = preferredChunkSize
 	}
 

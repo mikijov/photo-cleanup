@@ -55,7 +55,7 @@ func TestAcceptFile(t *testing.T) {
 			t.Errorf("%d, file not found: %s", i, err)
 			continue
 		}
-		accepted, reason := acceptFile(info)
+		accepted, reason := acceptExifFile(info)
 		if accepted != test.accepted {
 			t.Errorf("%d, accepted: expected:%v got:%v", i, test.accepted, accepted)
 		}
@@ -103,7 +103,7 @@ func TestGetFiles(t *testing.T) {
 	minSize = 0
 	useFileTime = false
 
-	files, err := getFiles("../test")
+	files, err := getFiles("../test", acceptExifFile)
 	if err != nil {
 		t.Fatalf("unexpectedly could not get files: %s", err)
 	}
@@ -136,7 +136,7 @@ func TestGetFiles(t *testing.T) {
 }
 
 func TestGetFiles2(t *testing.T) {
-	files, err := getFiles("../does-not-exist")
+	files, err := getFiles("../does-not-exist", acceptExifFile)
 	if files != nil {
 		t.Error("expected nil as return")
 	}

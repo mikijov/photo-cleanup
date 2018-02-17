@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,15 +85,20 @@ func init() {
 }
 
 type fileinfo struct {
-	path    string
-	newDir  string
-	newPath string
-	info    os.FileInfo
-	message string
-	time    time.Time
+	path       string
+	newDir     string
+	newPath    string
+	info       os.FileInfo
+	message    string
+	time       time.Time
+	contents   []byte
+	file       *os.File
+	matchGroup int
 }
 
-func acceptFile(info os.FileInfo) (accepted bool, reason string) {
+type filterFunc func(info os.FileInfo) (accepted bool, reason string)
+
+func acceptExifFile(info os.FileInfo) (accepted bool, reason string) {
 	mode := info.Mode()
 	if !mode.IsRegular() {
 		return false, "not regular file"
@@ -116,25 +122,37 @@ func acceptFile(info os.FileInfo) (accepted bool, reason string) {
 	return true, ""
 }
 
-func getFiles(dir string) (files []*fileinfo, er error) {
+func getFiles(dir string, accept filterFunc) (files []*fileinfo, er error) {
 	retVal := make([]*fileinfo, 0, 65536)
+	if retVal == nil {
+		return nil, errors.New("out of memory2")
+	}
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			Print("\r%s: error getting file info: %s\n", path, err)
-			return err
+			if ignorePermissionDenied {
+				return nil
+			} else {
+				return err
+			}
 		}
 		if info.IsDir() {
 			return nil
 		}
 
-		if ok, reason := acceptFile(info); !ok {
-			Info("\r%s: skipping: %s\n", path, reason)
-			return nil
+		if accept != nil {
+			if ok, reason := accept(info); !ok {
+				Info("\r%s: skipping: %s\n", path, reason)
+				return nil
+			}
 		}
 
 		if cap(retVal) <= len(retVal) {
-			newFiles := make([]*fileinfo, cap(retVal)*2)
+			newFiles := make([]*fileinfo, len(retVal), cap(retVal)*2)
+			if newFiles == nil {
+				return errors.New("out of memory1")
+			}
 			copy(newFiles, retVal)
 			retVal = newFiles
 		}
@@ -335,7 +353,7 @@ FILES:
 }
 
 func organize(src, dest string) {
-	files, err := getFiles(src)
+	files, err := getFiles(src, acceptExifFile)
 	if err != nil {
 		Print("Failed to get file list: %s\n", err)
 		return

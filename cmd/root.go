@@ -22,6 +22,7 @@ import (
 
 var cfgFile string
 var dryRun bool
+var ignorePermissionDenied bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -55,7 +56,8 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "display more information while processing")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "display no information while processing")
-	organizeCmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
+	rootCmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "Do not make any changes to files, only show what would happen.")
+	rootCmd.PersistentFlags().BoolVarP(&ignorePermissionDenied, "ignore-permission-denied", "", false, "Do not abort when encountering permission denied folders or files.")
 	// rootCmd.PersistentFlags().BoolVarP(&WarningsAsErrors, "warnings-as-errors", "w", false, "treat all warnings as errors")
 
 	// Cobra also supports local flags, which will only run

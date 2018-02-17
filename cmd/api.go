@@ -15,6 +15,7 @@
 package cmd
 
 import (
+	"io/ioutil"
 	"os"
 )
 
@@ -23,6 +24,8 @@ import (
 type OsInterface interface {
 	MkdirAll(path string, mode os.FileMode) error
 	Rename(oldpath, newpath string) error
+	Remove(path string) error
+	ReadFile(path string) ([]byte, error)
 }
 
 // OS points to implementation of OsInterface and is initialized by a call to
@@ -37,6 +40,14 @@ func (this *prodOs) MkdirAll(path string, mode os.FileMode) error {
 
 func (this *prodOs) Rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)
+}
+
+func (this *prodOs) Remove(path string) error {
+	return os.Remove(path)
+}
+
+func (this *prodOs) ReadFile(path string) ([]byte, error) {
+	return ioutil.ReadFile(path)
 }
 
 // InitProdOs initializes OsInterface with production version which calls
@@ -61,9 +72,26 @@ type RenameParams struct {
 	retval  error
 }
 
+// RemoveParams holds values describing mocked calls to Remove.
+type RemoveParams struct {
+	called int
+	path   string
+	retval error
+}
+
+// ReadFileParams holds values describing mocked calls to ReadFile.
+type ReadFileParams struct {
+	called   int
+	path     string
+	retBytes []byte
+	retError error
+}
+
 type mockOs struct {
 	mkdirall MkdirAllParams
 	rename   RenameParams
+	remove   RemoveParams
+	readfile ReadFileParams
 }
 
 func (this *mockOs) MkdirAll(path string, mode os.FileMode) error {
@@ -78,6 +106,18 @@ func (this *mockOs) Rename(oldpath, newpath string) error {
 	this.rename.oldpath = oldpath
 	this.rename.newpath = newpath
 	return this.rename.retval
+}
+
+func (this *mockOs) Remove(path string) error {
+	this.remove.called++
+	this.remove.path = path
+	return this.remove.retval
+}
+
+func (this *mockOs) ReadFile(path string) ([]byte, error) {
+	this.readfile.called++
+	this.readfile.path = path
+	return this.readfile.retBytes, this.readfile.retError
 }
 
 func initMockOs() *mockOs {

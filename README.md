@@ -7,6 +7,8 @@ photo-cleanup
 
 photo-cleanup is a photo organizer.
 
+## organize
+
 ```
 $ photo-cleanup help organize
 Moves photos from source into proper destination subdirectory.
@@ -17,7 +19,6 @@ Usage:
 Flags:
       --all-files                   Process all files. Default is only images (jpg).
       --dir-fmt string              Directory format (default "yyyy/mm")
-  -n, --dry-run                     Do not make any changes to files, only show what would happen.
   -h, --help                        help for organize
       --hidden-files                Process hidden files. Default is only normal files.
       --min-size int                Minimum file size to consider for processing.
@@ -27,9 +28,10 @@ Flags:
       --use-filename-encoded-time   Attempt to parse time from filename. (default true)
 
 Global Flags:
-      --config string   config file (default is $HOME/.photo-cleanup.yaml)
-  -q, --quiet           display no information while processing
-  -v, --verbose         display more information while processing
+  -n, --dry-run                    Do not make any changes to files, only show what would happen.
+      --ignore-permission-denied   Do not abort when encountering permission denied folders or files.
+  -q, --quiet                      display no information while processing
+  -v, --verbose                    display more information while processing
 ```
 
 To move all images from source to target directory while at the same time
@@ -53,11 +55,50 @@ General algorithm is as follows:
 - move all prepared files into new destination, skipping any files that already
   exist
 
+## dedupe
+
+```
+$ photo-cleanup help dedupe
+Find and delete duplicate files.
+
+Usage:
+  photo-cleanup dedupe path [path...] [flags]
+
+Flags:
+      --chunk-size int              preferred chunk size when comparing files (default 65536)
+      --empty-files-are-identical   treat empty files as identical duplicates
+  -h, --help                        help for dedupe
+
+Global Flags:
+  -n, --dry-run                    Do not make any changes to files, only show what would happen.
+      --ignore-permission-denied   Do not abort when encountering permission denied folders or files.
+  -q, --quiet                      display no information while processing
+  -v, --verbose                    display more information while processing
+```
+
+To delete all duplicate files from couple of paths simply execute:
+
+    $ photo-cleanup dedupe /media/Photos /media/Videos
+
+photo-cleanup compares actual contents of the files rather then checksums. It
+attempts to minimize the amount of data it needs to read by skipping any files
+that are proven to be unique.
+
+General algorithm is as follows:
+- find all files
+- group them according to size, i.e. different size => contents must be
+  different
+- for each group of files
+  - read chunk-size bytes
+  - compare only to file that was equal up to that point
+  - repeat until whole file read or all files proven different
+  - if whole file read, delete all files that are duplicates
+
 ## Features and ToDo
 - [x] extract date/time from jpegs files
 - [x] allow to customize destination directory format
-- [ ] organize duplicate filenames by appending -1, -2 etc.
-- [ ] detect binary identical files
+- [x] organize duplicate filenames by appending -1, -2 etc.
+- [x] detect binary identical files
 - [ ] extract date/time from mp4 files
 - [ ] support other file formats
 - [ ] organize using hard links instead of moving files

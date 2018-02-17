@@ -39,7 +39,9 @@ var dedupCmd = &cobra.Command{
 	// to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		dedupe(args)
+		if err := dedupe(args); err != nil {
+			Print("Error: %s\n", err)
+		}
 	},
 }
 
@@ -78,9 +80,8 @@ func (this *dupeList) add(fi *fileinfo) {
 }
 
 func deleteFile(path string) error {
-	if dryRun {
-		Print("rm \"%s\"\n", path)
-	} else {
+	Print("rm \"%s\"\n", path)
+	if !dryRun {
 		err := OS.Remove(path)
 		if err != nil {
 			if ignorePermissionDenied && os.IsPermission(err) {

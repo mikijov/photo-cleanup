@@ -74,7 +74,7 @@ func init() {
 	// and all subcommands, e.g.:
 	// organizeCmd.PersistentFlags().String("foo", "", "A help for foo")
 
-	organizeCmd.Flags().StringVar(&destinationDirectoryFormat, "dir-fmt", "yyyy/mm", "Directory format")
+	organizeCmd.Flags().StringVar(&destinationDirectoryFormat, "dir-fmt", "yyyy", "Directory format")
 	organizeCmd.Flags().Int64Var(&minSize, "min-size", 0, "Minimum file size to consider for processing.")
 	organizeCmd.Flags().BoolVar(&allFiles, "all-files", false, "Process all files. Default is only images (jpg).")
 	organizeCmd.Flags().BoolVar(&hiddenFiles, "hidden-files", false, "Process hidden files. Default is only normal files.")

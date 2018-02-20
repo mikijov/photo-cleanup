@@ -176,6 +176,8 @@ func TestEvaluate(t *testing.T) {
 	}
 
 	useFileTime = false
+	destinationDirectoryFormat = TimeFormat("yyyy/mm")
+
 	evaluate(files, "dest")
 
 	for _, file := range files {

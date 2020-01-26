@@ -36,6 +36,7 @@ var useExifTime bool
 var useFileTime bool
 var useFilenameEncodedTime bool
 var renameDuplicates bool
+var deleteDuplicates bool
 
 var filenameWithTimeRE = regexp.MustCompile(`^(?i:IMG|VID)_([[:digit:]]{8}_[[:digit:]]{6})\.(?i:jpg|mp4|3gp)$`)
 var timeLayoutFromFilenameWithDate = TimeFormat("yyyymmdd_HHMMSS")
@@ -82,6 +83,7 @@ func init() {
 	organizeCmd.Flags().BoolVar(&useFileTime, "use-file-time", false, "Use file modification time when no meta data.")
 	organizeCmd.Flags().BoolVar(&useFilenameEncodedTime, "use-filename-encoded-time", true, "Attempt to parse time from filename.")
 	organizeCmd.Flags().BoolVar(&renameDuplicates, "rename-duplicates", false, "Rename duplicates by appending -1, -2 etc.")
+	organizeCmd.Flags().BoolVar(&deleteDuplicates, "delete-duplicates", false, "Delete source files if already exist in destination.")
 }
 
 type fileinfo struct {
@@ -327,6 +329,16 @@ FILES:
 					name = name[:len(name)-len(ext)]
 				}
 				file.newPath = filepath.Join(file.newDir, fmt.Sprintf("%s-%d%s", name, namePostfix, ext))
+			} else if deleteDuplicates {
+				file.message = fmt.Sprintf("rm %s", file.path)
+				Print("\r%s\n", file.message)
+				if !dryRun {
+					if err := OS.Remove(file.path); err != nil {
+						file.message = fmt.Sprintf("%s: failed to delete file (%s)", file.newPath, err)
+						Print("\r%s\n", file.message)
+					}
+				}
+				continue FILES
 			} else {
 				file.message = fmt.Sprintf("%s: already exists", file.newPath)
 				Print("\r%s\n", file.message)
